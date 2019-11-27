@@ -31,6 +31,8 @@
 #    26/11 21:44       26/11 23:31
 #    27/11 02:24       27/11 03:08
 #
+#    modified by schreibfaul1
+#    27/11/2019 17:09 make it runable in Python3
 
 #Ensure that Pygame is installed
 
@@ -193,7 +195,7 @@ class GamePosition:
         self.history = history #A dictionary that stores as key a position (hashed) and the value of each of
         #these keys represents the number of times each of these positions was repeated in order for this
         #position to be reached.
-        
+
     def getboard(self):
         return self.board
     def setboard(self,board):
@@ -218,7 +220,7 @@ class GamePosition:
         #Returns True if any of of the values in the history dictionary is greater than 3.
         #This would mean a position had been repeated at least thrice in order to reach the
         #current position in this game.
-        return any(value>=3 for value in self.history.itervalues())
+        return any(value>=3 for value in self.history.values())
     def addtoHistory(self,position):
         #Generate a unique key out of the current position:
         key = pos2key(position)
@@ -890,7 +892,7 @@ def chess_coord_to_pixels(chess_coord):
     else:
         return ((7-x)*square_width, (7-y)*square_height)
 def pixel_coord_to_chess(pixel_coord):
-    x,y = pixel_coord[0]/square_width, pixel_coord[1]/square_height
+    x,y = int(pixel_coord[0]/square_width), int(pixel_coord[1]/square_height)
     #See comments for chess_coord_to_pixels() for an explanation of the
     #conditions seen here:
     if isAI:
@@ -1165,7 +1167,7 @@ def pieceSquareTable(flatboard,gamephase):
         #Adjust index if black piece, since piece sqaure tables
         #were designed for white:
         if color=='b':
-            i = (7-i/8)*8 + i%8
+            i = int((7-i/8)*8 + i%8)
             sign = -1
         #Adjust score:
         if piece=='P':
@@ -1319,32 +1321,34 @@ pygame.init()
 #Load the screen with any arbitrary size for now:
 screen = pygame.display.set_mode((600,600))
 
+mediapath         = os.path.dirname(__file__) + '/Media'
+
 #Load all the images:
 #Load the background chess board image:
-background = pygame.image.load(os.path.join('Media','board.png')).convert()
+background = pygame.image.load(os.path.join(mediapath,'board.png')).convert()
 #Load an image with all the pieces on it:
-pieces_image = pygame.image.load(os.path.join('Media','Chess_Pieces_Sprite.png')).convert_alpha()
-circle_image_green = pygame.image.load(os.path.join('Media','green_circle_small.png')).convert_alpha()
-circle_image_capture = pygame.image.load(os.path.join('Media','green_circle_neg.png')).convert_alpha()
-circle_image_red = pygame.image.load(os.path.join('Media','red_circle_big.png')).convert_alpha()
-greenbox_image = pygame.image.load(os.path.join('Media','green_box.png')).convert_alpha()
-circle_image_yellow = pygame.image.load(os.path.join('Media','yellow_circle_big.png')).convert_alpha()
-circle_image_green_big = pygame.image.load(os.path.join('Media','green_circle_big.png')).convert_alpha()
-yellowbox_image = pygame.image.load(os.path.join('Media','yellow_box.png')).convert_alpha()
+pieces_image = pygame.image.load(os.path.join(mediapath,'Chess_Pieces_Sprite.png')).convert_alpha()
+circle_image_green = pygame.image.load(os.path.join(mediapath,'green_circle_small.png')).convert_alpha()
+circle_image_capture = pygame.image.load(os.path.join(mediapath,'green_circle_neg.png')).convert_alpha()
+circle_image_red = pygame.image.load(os.path.join(mediapath,'red_circle_big.png')).convert_alpha()
+greenbox_image = pygame.image.load(os.path.join(mediapath,'green_box.png')).convert_alpha()
+circle_image_yellow = pygame.image.load(os.path.join(mediapath,'yellow_circle_big.png')).convert_alpha()
+circle_image_green_big = pygame.image.load(os.path.join(mediapath,'green_circle_big.png')).convert_alpha()
+yellowbox_image = pygame.image.load(os.path.join(mediapath,'yellow_box.png')).convert_alpha()
 #Menu pictures:
-withfriend_pic = pygame.image.load(os.path.join('Media','withfriend.png')).convert_alpha()
-withAI_pic = pygame.image.load(os.path.join('Media','withAI.png')).convert_alpha()
-playwhite_pic = pygame.image.load(os.path.join('Media','playWhite.png')).convert_alpha()
-playblack_pic = pygame.image.load(os.path.join('Media','playBlack.png')).convert_alpha()
-flipEnabled_pic = pygame.image.load(os.path.join('Media','flipEnabled.png')).convert_alpha()
-flipDisabled_pic = pygame.image.load(os.path.join('Media','flipDisabled.png')).convert_alpha()
+withfriend_pic = pygame.image.load(os.path.join(mediapath,'withfriend.png')).convert_alpha()
+withAI_pic = pygame.image.load(os.path.join(mediapath,'withAI.png')).convert_alpha()
+playwhite_pic = pygame.image.load(os.path.join(mediapath,'playWhite.png')).convert_alpha()
+playblack_pic = pygame.image.load(os.path.join(mediapath,'playBlack.png')).convert_alpha()
+flipEnabled_pic = pygame.image.load(os.path.join(mediapath,'flipEnabled.png')).convert_alpha()
+flipDisabled_pic = pygame.image.load(os.path.join(mediapath,'flipDisabled.png')).convert_alpha()
 
 #Getting sizes:
 #Get background size:
 size_of_bg = background.get_rect().size
 #Get size of the individual squares
-square_width = size_of_bg[0]/8
-square_height = size_of_bg[1]/8
+square_width = int(size_of_bg[0]/8)
+square_height = int(size_of_bg[1]/8)
 
 
 #Rescale the images so that each piece can fit in a square:
