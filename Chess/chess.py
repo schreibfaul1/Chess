@@ -33,6 +33,7 @@
 #
 #    modified by schreibfaul1
 #    27/11/2019 17:09 make it runable in Python3
+#    27/11/2019 17:09 new board and new figures (as single png)
 
 #Ensure that Pygame is installed
 
@@ -163,6 +164,11 @@ from collections import Counter #For counting elements in a list effieciently.
 import threading #To allow for AI to think simultaneously while the GUI is coloring the board.
 import os #To allow path joining with cross-platform support
 
+#global var
+boardSize         = 680 # height and width in px
+offset            = int(boardSize/34) # boarderwidth in px
+squareSize        = int((boardSize - 2*offset)/8) # the size of the individual squares
+screen            = pygame.display.set_mode((boardSize, boardSize)) # Load the screen x, y with size
 
 ########################################################
 #Class Definitions:
@@ -245,11 +251,11 @@ class Shades:
     def getInfo(self):
         return [self.image,self.pos]
 class Piece:
-    def __init__(self,pieceinfo,chess_coord):
+    def __init__(self, pieceInfo, chessCoord):
         #pieceinfo is a string such as 'Qb'. The Q represents Queen and b
         #shows the fact that it is black:
-        piece = pieceinfo[0]
-        color = pieceinfo[1]
+        piece = pieceInfo[0]
+        color = pieceInfo[1]
         #Get the information about where the image for this piece is stored
         #on the overall sprite image with all the pieces. Note that
         #square_width and square_height represent the size of a square on the
@@ -266,16 +272,16 @@ class Piece:
             index = 4
         elif piece == 'P':
             index = 5
-        left_x = square_width*index
+        left_x = squareSize*index
         if color == 'w':
             left_y = 0
         else:
-            left_y = square_height
+            left_y = squareSize
         
-        self.pieceinfo = pieceinfo
+        self.pieceInfo = pieceInfo
         #subsection defines the part of the sprite image that represents our
         #piece:
-        self.subsection = (left_x,left_y,square_width,square_height)
+        self.subsection = (left_x,left_y,squareSize,squareSize)
         #There are two ways that the position of a piece is defined on the
         #board. The default one used is the chess_coord, which stores something
         #like (3,2). It represents the chess coordinate where our piece image should
@@ -283,12 +289,12 @@ class Piece:
         #of (-1,-1), it will hold pixel coordinates such as (420,360) that represents
         #the location in the window that the piece should be blitted on. This is
         #useful for example if our piece is transitioning from a square to another:
-        self.chess_coord = chess_coord
+        self.chess_coord = chessCoord
         self.pos = (-1,-1)
 
     #The methods are self explanatory:
     def getInfo(self):
-        return [self.chess_coord, self.subsection,self.pos]
+        return [self.chess_coord, self.pieceInfo, self.pos]
     def setpos(self,pos):
         self.pos = pos
     def getpos(self):
@@ -297,7 +303,7 @@ class Piece:
         self.chess_coord = coord
     def __repr__(self):
         #useful for debugging
-        return self.pieceinfo+'('+str(chess_coord[0])+','+str(chess_coord[1])+')'
+        return self.pieceInfo+'('+str(chess_coord[0])+','+str(chess_coord[1])+')'
 
 
 ########################################################
@@ -870,7 +876,7 @@ def pos2key(position):
     return key
 
 ##############################////////GUI FUNCTIONS\\\\\\\\\\\\\#############################
-def chess_coord_to_pixels(chess_coord):
+def coord2pixels(chess_coord):
     x,y = chess_coord
     #There are two sets of coordinates that this function could choose to return.
     #One is the coordinates that would be usually returned, the other is one that
@@ -880,30 +886,32 @@ def chess_coord_to_pixels(chess_coord):
     if isAI:
         if AIPlayer==0:
             #This means you're playing against the AI and are playing as black:
-            return ((7-x)*square_width, (7-y)*square_height)
+            return ((7-x)*squareSize + offset, (7-y)*squareSize + offset)
         else:
-            return (x*square_width, y*square_height)
+            return (x*squareSize + offset, y*squareSize + offset)
     #Being here means two player game is being played.
     #If the flipping mode is enabled, and the player to play is black,
     #the board should flip, but not until the transition animation for 
     #white movement is complete:
-    if not isFlip or player==0 ^ isTransition:
-        return (x*square_width, y*square_height)
+    if not isFlip or player == 0 ^ isTransition:
+        return (x*squareSize + offset, y*squareSize + offset)
     else:
-        return ((7-x)*square_width, (7-y)*square_height)
-def pixel_coord_to_chess(pixel_coord):
-    x,y = int(pixel_coord[0]/square_width), int(pixel_coord[1]/square_height)
-    #See comments for chess_coord_to_pixels() for an explanation of the
-    #conditions seen here:
+        return ((7-x)*squareSize + offset, (7-y)*squareSize + offset)
+#-----------------------------------------------------------------------------------------------------------------------
+def pixels2coord(pixel_coord):
+    if pixel_coord[0] - offset < 0 or pixel_coord[1] - offset < 0:
+        return(8, 8)  # outside the board
+    x, y = int((pixel_coord[0] - offset) / squareSize), int((pixel_coord[1]-offset)/squareSize)
     if isAI:
-        if AIPlayer==0:
+        if AIPlayer == 0:
             return (7-x,7-y)
         else:
             return (x,y)
-    if not isFlip or player==0 ^ isTransition:
-        return (x,y)
+    if not isFlip or player == 0 ^ isTransition:
+        return (x, y)
     else:
         return (7-x,7-y)
+#-----------------------------------------------------------------------------------------------------------------------
 def getPiece(chess_coord):
     for piece in listofWhitePieces+listofBlackPieces:
         #piece.getInfo()[0] represents the chess coordinate occupied
@@ -976,7 +984,7 @@ def createShades(listofTuples):
         listofShades.append(shade)
 def drawBoard():
     #Blit the background:
-    screen.blit(background,(0,0))
+    screen.blit(background,(0,0)) # Blit the background
     #Choose the order in which to blit the pieces.
     #If black is about to play for example, white pieces
     #should be blitted first, so that when black is capturing,
@@ -995,46 +1003,42 @@ def drawBoard():
         #Shades
         for shade in listofShades:
             img,chess_coord = shade.getInfo()
-            pixel_coord = chess_coord_to_pixels(chess_coord)
+            pixel_coord = coord2pixels(chess_coord)
             screen.blit(img,pixel_coord)
     #Make shades to show what the previous move played was:
     if prevMove[0]!=-1 and not isTransition:
         x,y,x2,y2 = prevMove
-        screen.blit(yellowbox_image,chess_coord_to_pixels((x,y)))
-        screen.blit(yellowbox_image,chess_coord_to_pixels((x2,y2)))
+        screen.blit(yellowbox_image,coord2pixels((x,y)))
+        screen.blit(yellowbox_image,coord2pixels((x2,y2)))
 
-    #Blit the Pieces:
-    #Notw that one side has to be below the green circular shades to show
-    #that they are being targeted, and the other side if dragged to such
-    # a square should be blitted on top to show that it is capturing:
-
-    #Potentially captured pieces:
+    # Blit the Pieces:
+    # Now that one side has to be below the green circular shades to showt hat they are being targeted,
+    # and the other side if dragged to such a square should be blitted on top to show that it is capturing:
     for piece in order[0]:
-        
-        chess_coord,subsection,pos = piece.getInfo()
-        pixel_coord = chess_coord_to_pixels(chess_coord)
-        if pos==(-1,-1):
-            #Blit to default square:
-            screen.blit(pieces_image,pixel_coord,subsection)
+        chess_coord, pieceInfo, pos = piece.getInfo()
+        pixel_coord = coord2pixels(chess_coord)
+        pieceImage = pygame.image.load(os.path.join(piecesImagePath, pieceInfo + ".png"))
+        pieceImage = pygame.transform.scale(pieceImage, (squareSize, squareSize))
+        if pos == (-1, -1):
+            screen.blit(pieceImage, pixel_coord)
         else:
-            #Blit to the specific coordinates:
-            screen.blit(pieces_image,pos,subsection)
-    #Blit the shades in between:
-    if not (isDraw or chessEnded or isAIThink):
+            screen.blit(pieceImage, pos)
+
+    if not (isDraw or chessEnded or isAIThink): # Blit the shades in between:
         for shade in listofShades:
-            img,chess_coord = shade.getInfo()
-            pixel_coord = chess_coord_to_pixels(chess_coord)
-            screen.blit(img,pixel_coord)
-    #Potentially capturing pieces:
+            img, chess_coord = shade.getInfo()
+            pixel_coord = coord2pixels(chess_coord)
+            screen.blit(img, pixel_coord)
+
     for piece in order[1]:
-        chess_coord,subsection,pos = piece.getInfo()
-        pixel_coord = chess_coord_to_pixels(chess_coord)
-        if pos==(-1,-1):
-            #Default square
-            screen.blit(pieces_image,pixel_coord,subsection)
+        chess_coord, pieceInfo, pos = piece.getInfo()
+        pixel_coord = coord2pixels(chess_coord)
+        pieceImage = pygame.image.load(os.path.join(piecesImagePath, pieceInfo + ".png"))
+        pieceImage = pygame.transform.scale(pieceImage, (squareSize, squareSize))
+        if pos == (-1, -1):
+            screen.blit(pieceImage, pixel_coord)
         else:
-            #Specifc pixels:
-            screen.blit(pieces_image,pos,subsection)
+            screen.blit(pieceImage, pos)
 
 ###########################////////AI RELATED FUNCTIONS\\\\\\\\\\############################
 
@@ -1319,15 +1323,15 @@ king_endgame_table = [-50,-40,-30,-20,-20,-30,-40,-50,
 #Start pygame
 pygame.init()
 #Load the screen with any arbitrary size for now:
-screen = pygame.display.set_mode((600,600))
+
 
 mediapath         = os.path.dirname(__file__) + '/Media'
+piecesImagePath   = os.path.dirname(__file__) + '/Media/Pieces'
 
 #Load all the images:
 #Load the background chess board image:
 background = pygame.image.load(os.path.join(mediapath,'board.png')).convert()
 #Load an image with all the pieces on it:
-pieces_image = pygame.image.load(os.path.join(mediapath,'Chess_Pieces_Sprite.png')).convert_alpha()
 circle_image_green = pygame.image.load(os.path.join(mediapath,'green_circle_small.png')).convert_alpha()
 circle_image_capture = pygame.image.load(os.path.join(mediapath,'green_circle_neg.png')).convert_alpha()
 circle_image_red = pygame.image.load(os.path.join(mediapath,'red_circle_big.png')).convert_alpha()
@@ -1343,49 +1347,29 @@ playblack_pic = pygame.image.load(os.path.join(mediapath,'playBlack.png')).conve
 flipEnabled_pic = pygame.image.load(os.path.join(mediapath,'flipEnabled.png')).convert_alpha()
 flipDisabled_pic = pygame.image.load(os.path.join(mediapath,'flipDisabled.png')).convert_alpha()
 
-#Getting sizes:
-#Get background size:
-size_of_bg = background.get_rect().size
-#Get size of the individual squares
-square_width = int(size_of_bg[0]/8)
-square_height = int(size_of_bg[1]/8)
+
+
 
 
 #Rescale the images so that each piece can fit in a square:
-pieces_image = pygame.transform.scale(pieces_image,
-                                      (square_width*6,square_height*2))
-circle_image_green = pygame.transform.scale(circle_image_green,
-                                      (square_width, square_height))
-circle_image_capture = pygame.transform.scale(circle_image_capture,
-                                      (square_width, square_height))
-circle_image_red = pygame.transform.scale(circle_image_red,
-                                      (square_width, square_height))
-greenbox_image = pygame.transform.scale(greenbox_image,
-                                      (square_width, square_height))
-yellowbox_image = pygame.transform.scale(yellowbox_image,
-                                      (square_width, square_height))
-circle_image_yellow = pygame.transform.scale(circle_image_yellow,
-                                             (square_width, square_height))
-circle_image_green_big = pygame.transform.scale(circle_image_green_big,
-                                             (square_width, square_height))
-withfriend_pic = pygame.transform.scale(withfriend_pic,
-                                      (square_width*4,square_height*4))
-withAI_pic = pygame.transform.scale(withAI_pic,
-                                      (square_width*4,square_height*4))
-playwhite_pic = pygame.transform.scale(playwhite_pic,
-                                      (square_width*4,square_height*4))
-playblack_pic = pygame.transform.scale(playblack_pic,
-                                      (square_width*4,square_height*4))
-flipEnabled_pic = pygame.transform.scale(flipEnabled_pic,
-                                      (square_width*4,square_height*4))
-flipDisabled_pic = pygame.transform.scale(flipDisabled_pic,
-                                      (square_width*4,square_height*4))
+background             = pygame.transform.scale(background, (boardSize, boardSize))
+circle_image_green = pygame.transform.scale(circle_image_green, (squareSize, squareSize))
+circle_image_capture = pygame.transform.scale(circle_image_capture, (squareSize, squareSize))
+circle_image_red = pygame.transform.scale(circle_image_red, (squareSize, squareSize))
+greenbox_image = pygame.transform.scale(greenbox_image, (squareSize, squareSize))
+yellowbox_image = pygame.transform.scale(yellowbox_image, (squareSize, squareSize))
+circle_image_yellow = pygame.transform.scale(circle_image_yellow, (squareSize, squareSize))
+circle_image_green_big = pygame.transform.scale(circle_image_green_big, (squareSize, squareSize))
+withfriend_pic = pygame.transform.scale(withfriend_pic, (squareSize*4,squareSize*4))
+withAI_pic = pygame.transform.scale(withAI_pic, (squareSize*4,squareSize*4))
+playwhite_pic = pygame.transform.scale(playwhite_pic, (squareSize*4,squareSize*4))
+playblack_pic = pygame.transform.scale(playblack_pic, (squareSize*4,squareSize*4))
+flipEnabled_pic = pygame.transform.scale(flipEnabled_pic, (squareSize*4,squareSize*4))
+flipDisabled_pic = pygame.transform.scale(flipDisabled_pic, (squareSize*4,squareSize*4))
 
 
 
-#Make a window of the same size as the background, set its title, and
-#load the background image onto it (the board):
-screen = pygame.display.set_mode(size_of_bg)
+
 pygame.display.set_caption('Shallow Green')
 screen.blit(background,(0,0))
 
@@ -1444,18 +1428,18 @@ while not gameEnded:
             #The user has not selected between playing against the AI
             #or playing against a friend.
             #So allow them to choose between playing with a friend or the AI:
-            screen.blit(withfriend_pic,(0,square_height*2))
-            screen.blit(withAI_pic,(square_width*4,square_height*2))
+            screen.blit(withfriend_pic,(offset, squareSize*2))
+            screen.blit(withAI_pic,(offset+squareSize*4,squareSize*2))
         elif isAI==True:
             #The user has selected to play against the AI.
             #Allow the user to play as white or black:
-            screen.blit(playwhite_pic,(0,square_height*2))
-            screen.blit(playblack_pic,(square_width*4,square_height*2))
+            screen.blit(playwhite_pic,(offset,squareSize*2))
+            screen.blit(playblack_pic,(offset+squareSize*4,squareSize*2))
         elif isAI==False:
             #The user has selected to play with a friend.
             #Allow choice of flipping the board or not flipping the board:
-            screen.blit(flipDisabled_pic,(0,square_height*2))
-            screen.blit(flipEnabled_pic,(square_width*4,square_height*2))
+            screen.blit(flipDisabled_pic,(offset,squareSize*2))
+            screen.blit(flipEnabled_pic,(offset+squareSize*4,squareSize*2))
         if isFlip!=-1:
             #All settings have already been specified.
             #Draw all the pieces onto the board:
@@ -1485,9 +1469,9 @@ while not gameEnded:
                 #Determine if left box was clicked or right box.
                 #Then choose an appropriate action based on current
                 #state of menu:
-                if (pos[0]<square_width*4 and
-                pos[1]>square_height*2 and
-                pos[1]<square_height*6):
+                if (pos[0]<squareSize*4 and
+                pos[1]>squareSize*2 and
+                pos[1]<squareSize*6):
                     #LEFT SIDE CLICKED
                     if isAI == -1:
                         isAI = False
@@ -1496,9 +1480,9 @@ while not gameEnded:
                         isFlip = False
                     elif isAI==False:
                         isFlip = False
-                elif (pos[0]>square_width*4 and
-                pos[1]>square_height*2 and
-                pos[1]<square_height*6):
+                elif (pos[0]>squareSize*4 and
+                pos[1]>squareSize*2 and
+                pos[1]<squareSize*6):
                     #RIGHT SIDE CLICKED
                     if isAI == -1:
                         isAI = True
@@ -1552,7 +1536,7 @@ while not gameEnded:
             #Get the oordinates of the mouse
             pos = pygame.mouse.get_pos()
             #convert to chess coordinates:
-            chess_coord = pixel_coord_to_chess(pos)
+            chess_coord = pixels2coord(pos)
             x = chess_coord[0]
             y = chess_coord[1]
             #If the piece clicked on is not occupied by your own piece,
@@ -1570,7 +1554,7 @@ while not gameEnded:
             #A green box should appear on the square which was selected, unless
             #it's a king under check, in which case it shouldn't because the king
             #has a red color on it in that case.
-            if ((dragPiece.pieceinfo[0]=='K') and
+            if ((dragPiece.pieceInfo[0]=='K') and
                 (isCheck(position,'white') or isCheck(position,'black'))):
                 None
             else:
@@ -1584,7 +1568,7 @@ while not gameEnded:
             dragPiece.setpos((-1,-1))
             #Get coordinates and convert them:
             pos = pygame.mouse.get_pos()
-            chess_coord = pixel_coord_to_chess(pos)
+            chess_coord = pixels2coord(pos)
             x2 = chess_coord[0]
             y2 = chess_coord[1]
             #Initialize:
@@ -1673,8 +1657,8 @@ while not gameEnded:
                 listofWhitePieces,listofBlackPieces = createPieces(board)
             else:
                 movingPiece = dragPiece
-                origin = chess_coord_to_pixels((x,y))
-                destiny = chess_coord_to_pixels((x2,y2))
+                origin = coord2pixels((x,y))
+                destiny = coord2pixels((x2,y2))
                 movingPiece.setpos(origin)
                 step = (destiny[0]-origin[0],destiny[1]-origin[1])
             
@@ -1700,7 +1684,7 @@ while not gameEnded:
     #If a piece is being dragged let the dragging piece follow the mouse:
     if isDown:
         m,k = pygame.mouse.get_pos()
-        dragPiece.setpos((m-square_width/2,k-square_height/2))
+        dragPiece.setpos((int(m-squareSize/2), int(k-squareSize/2)))
     #If the AI is thinking, make sure to check if it isn't done thinking yet.
     #Also, if a piece is currently being animated don't ask the AI if it's
     #done thining, in case it replied in the affirmative and starts moving 
@@ -1732,8 +1716,8 @@ while not gameEnded:
             #Animate the movement:
             isTransition = True
             movingPiece = getPiece((x,y))
-            origin = chess_coord_to_pixels((x,y))
-            destiny = chess_coord_to_pixels((x2,y2))
+            origin = coord2pixels((x,y))
+            destiny = coord2pixels((x2,y2))
             movingPiece.setpos(origin)
             step = (destiny[0]-origin[0],destiny[1]-origin[1])
 
