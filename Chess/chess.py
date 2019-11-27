@@ -444,7 +444,7 @@ def drawText(board):
         for k in range(len(board[i])):
             if board[i][k]==0:
                 board[i][k] = 'Oo'
-        print board[i]
+        print(board[i])
     for i in range(len(board)):
         for k in range(len(board[i])):
             if board[i][k]=='Oo':
