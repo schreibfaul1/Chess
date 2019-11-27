@@ -34,6 +34,8 @@
 #    modified by schreibfaul1
 #    27/11/2019 17:09 make it runable in Python3
 #    27/11/2019 17:09 new board and new figures (as single png)
+#    27/11/2019 20:35 AI schould start after transitioning end, new flag: awaitAI
+
 
 #Ensure that Pygame is installed
 
@@ -169,6 +171,8 @@ boardSize         = 680 # height and width in px
 offset            = int(boardSize/34) # boarderwidth in px
 squareSize        = int((boardSize - 2*offset)/8) # the size of the individual squares
 screen            = pygame.display.set_mode((boardSize, boardSize)) # Load the screen x, y with size
+searchDepth       = 3
+awaitAI           = False # start AI after transition has ended
 
 ########################################################
 #Class Definitions:
@@ -766,7 +770,7 @@ def makemove(position,x,y,x2,y2):
         #If a pawn moved two steps, there is a potential en passant
         #target. Otherise, there isn't. Update the variable:
         if abs(y2-y)==2:
-            EnP_Target = (x,(y+y2)/2)
+            EnP_Target = (x,int((y+y2)/2))
         else:
             EnP_Target = -1
         #If a pawn moves towards the end of the board, it needs to 
@@ -1428,18 +1432,18 @@ while not gameEnded:
             #The user has not selected between playing against the AI
             #or playing against a friend.
             #So allow them to choose between playing with a friend or the AI:
-            screen.blit(withfriend_pic,(offset, squareSize*2))
-            screen.blit(withAI_pic,(offset+squareSize*4,squareSize*2))
+            screen.blit(withfriend_pic,(offset, offset+squareSize*2))
+            screen.blit(withAI_pic,(offset+squareSize*4, offset+squareSize*2))
         elif isAI==True:
             #The user has selected to play against the AI.
             #Allow the user to play as white or black:
-            screen.blit(playwhite_pic,(offset,squareSize*2))
-            screen.blit(playblack_pic,(offset+squareSize*4,squareSize*2))
+            screen.blit(playwhite_pic,(offset,offset+squareSize*2))
+            screen.blit(playblack_pic,(offset+squareSize*4, offset+squareSize*2))
         elif isAI==False:
             #The user has selected to play with a friend.
             #Allow choice of flipping the board or not flipping the board:
-            screen.blit(flipDisabled_pic,(offset,squareSize*2))
-            screen.blit(flipEnabled_pic,(offset+squareSize*4,squareSize*2))
+            screen.blit(flipDisabled_pic,(offset,offset+squareSize*2))
+            screen.blit(flipEnabled_pic,(offset+squareSize*4, offset+squareSize*2))
         if isFlip!=-1:
             #All settings have already been specified.
             #Draw all the pieces onto the board:
@@ -1469,9 +1473,9 @@ while not gameEnded:
                 #Determine if left box was clicked or right box.
                 #Then choose an appropriate action based on current
                 #state of menu:
-                if (pos[0]<squareSize*4 and
-                pos[1]>squareSize*2 and
-                pos[1]<squareSize*6):
+                if (pos[0] < offset+squareSize*4 and
+                pos[1]> offset+squareSize*2 and
+                pos[1]< offset+squareSize*6):
                     #LEFT SIDE CLICKED
                     if isAI == -1:
                         isAI = False
@@ -1480,9 +1484,9 @@ while not gameEnded:
                         isFlip = False
                     elif isAI==False:
                         isFlip = False
-                elif (pos[0]>squareSize*4 and
-                pos[1]>squareSize*2 and
-                pos[1]<squareSize*6):
+                elif (pos[0]> offset+squareSize*4 and
+                pos[1]> offset+squareSize*2 and
+                pos[1]< offset+squareSize*6):
                     #RIGHT SIDE CLICKED
                     if isAI == -1:
                         isAI = True
@@ -1504,7 +1508,7 @@ while not gameEnded:
     #that.
     #Do it every 6 frames so it's not too fast:
     numm+=1
-    if isAIThink and numm%6==0:
+    if isAIThink and numm%3==0:
         ax+=1
         if ax==8:
             ay+=1
@@ -1640,15 +1644,7 @@ while not gameEnded:
             #If the AI option was selecteed and the game still hasn't finished,
             #let the AI start thinking about its next move:
             if isAI and not chessEnded:
-                if player==0:
-                    colorsign = 1
-                else:
-                    colorsign = -1
-                bestMoveReturn = []
-                move_thread = threading.Thread(target = negamax,
-                            args = (position,3,-1000000,1000000,colorsign,bestMoveReturn))
-                move_thread.start()
-                isAIThink = True
+                awaitAI = True
             #Move the piece to its new destination:
             dragPiece.setcoord((x2,y2))
             #There may have been a capture, so the piece list should be regenerated.
@@ -1664,6 +1660,21 @@ while not gameEnded:
             
             #Either way shades should be deleted now:
             createShades([])
+
+    if awaitAI and not isTransition:
+        awaitAI = False
+        if player==0:
+            colorsign = 1
+        else:
+            colorsign = -1
+        bestMoveReturn = []
+        move_thread = threading.Thread(target = negamax,
+                    args = (position,searchDepth,-1000000,1000000,colorsign,bestMoveReturn))
+        move_thread.start()
+        isAIThink = True
+
+
+
     #If an animation is supposed to happen, make it happen:
     if isTransition:
         p,q = movingPiece.getpos()
