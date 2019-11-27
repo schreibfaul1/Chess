@@ -437,7 +437,7 @@ class Piece:
 # for a player. These are pawns that do not have supporting pawns on adjacent files
 # and so are difficult to protect.
 #
-# 
+#
 ##################################/////CHESS PROCESSING FUNCTIONS\\\\########################
 def drawText(board):
     for i in range(len(board)):
