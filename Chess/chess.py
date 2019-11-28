@@ -174,7 +174,7 @@ searched          = {} # global variable that allows negamax to keep track of no
 
 # Load the images:
 background              = pygame.image.load(os.path.join(mediaPath, 'board.png')).convert()
-icon                    = pygame.image.load(os.path.join(mediaPath, "chess.jpg")) # shown in windows title and taskbar
+icon                    = pygame.image.load(os.path.join(mediaPath, "chess.jpg"))
 circle_image_green      = pygame.image.load(os.path.join(shadesImagePath, 'green_circle_small.png')).convert_alpha()
 circle_image_capture    = pygame.image.load(os.path.join(shadesImagePath, 'green_circle_neg.png')).convert_alpha()
 circle_image_red        = pygame.image.load(os.path.join(shadesImagePath, 'red_circle_big.png')).convert_alpha()
@@ -208,7 +208,7 @@ flipDisabled_pic        = pygame.transform.scale(flipDisabled_pic, (squareSize*4
 # Start pygame
 pygame.init()
 pygame.display.set_caption('Shallow Green')
-pygame.display.set_icon(icon)
+pygame.display.set_icon(icon) # shown in windows title and taskbar (but not in all Linux distributions)
 screen.blit(background,(0,0))
 
 # Load the sounds:
@@ -333,28 +333,6 @@ class Piece:
         return self.pieceInfo+'('+str(chess_coord[0])+','+str(chess_coord[1])+')'
 #-----------------------------------------------------------------------------------------------------------------------
 
-
-#///////////////////////////////CHESS PROCESSING FUNCTIONS////////////////////
-#
-# drawText(board) - This function is not called in this program. It is useful for debugging
-# purposes, as it allows a board to be printed to the screen in a readable format.
-#
-# isOccupied(board,x,y) - Returns true if a given coordinate on the board is not empty, and
-# false otherwise.
-#
-# isOccupiedby(board,x,y,color) - Same as above, but only returns true if the square
-# specified by the coordinates is of the specifc color inputted.
-#
-# filterbyColor(board,listofTuples,color) - This function takes the board state, a list
-# of coordinates, and a color as input. It will return the same list, but without
-# coordinates that are out of bounds of the board and also without those occupied by the
-# pieces of the particular color passed to this function as an argument. In other words,
-# if 'white' is passed in, it will not return any white occupied square.
-#
-# lookfor(board,piece) - This functions takes the 2D array that represents a board and finds 
-# the indices of all the locations that is occupied by the specified piece. The list of 
-# indices is returned.
-#
 # isAttackedby(position,target_x,target_y,color) - This function checks if the square specified
 # by (target_x,target_y) coordinates is being attacked by any of a specific colored set of pieces.
 #
@@ -419,8 +397,13 @@ class Piece:
 # to make the game look nice.
 #
 
-##################################/////CHESS PROCESSING FUNCTIONS\\\\########################
+
+#-----------------------------------------------------------------------------------------------------------------------
+#                       C H E S S   P R O C E S S I N G    F U N C T I O N S
+#-----------------------------------------------------------------------------------------------------------------------
 def drawText(board):
+    # drawText(board) - This function is not called in this program. It is useful for debugging purposes,
+    # as it allows a board to be printed to the screen in a readable format.
     for i in range(len(board)):
         for k in range(len(board[i])):
             if board[i][k]==0:
@@ -430,31 +413,39 @@ def drawText(board):
         for k in range(len(board[i])):
             if board[i][k]=='Oo':
                 board[i][k] = 0
+#-----------------------------------------------------------------------------------------------------------------------
 def isOccupied(board,x,y):
+    # Returns true if a given coordinate on the board is not empty, and false otherwise.
     if board[y][x] == 0:
-    #The square has nothing on it.
-        return False
+        return False # The square has nothing on it.
     return True
+#-----------------------------------------------------------------------------------------------------------------------
 def isOccupiedby(board,x,y,color):
+    # Same as above, but only returns true if the square specified by the coordinates is of the specifc color inputted.
     if board[y][x]==0:
-        #the square has nothing on it.
-        return False
+        return False # the square has nothing on it.
     if board[y][x][1] == color[0]:
-        #The square has a piece of the color inputted.
-        return True
-    #The square has a piece of the opposite color.
-    return False
-def filterbyColor(board,listofTuples,color):
+        return True # The square has a piece of the color inputted.
+    return False # The square has a piece of the opposite color.
+#-----------------------------------------------------------------------------------------------------------------------
+def filterbyColor(board, listofTuples, color):
+    # This function takes the board state, a list of coordinates, and a color as input. It will return the same list,
+    # but without coordinates that are out of bounds of the board and also without those occupied by the pieces of the
+    # particular color passed to this function as an argument. In other words, if 'white' is passed in, it will not
+    # return any white occupied square.
     filtered_list = []
-    #Go through each coordinate:
-    for pos in listofTuples:
+
+    for pos in listofTuples: # Go through each coordinate:
         x = pos[0]
         y = pos[1]
         if x>=0 and x<=7 and y>=0 and y<=7 and not isOccupiedby(board,x,y,color):
             #coordinates are on-board and no same-color piece is on the square.
             filtered_list.append(pos)
     return filtered_list
-def lookfor(board,piece):
+#-----------------------------------------------------------------------------------------------------------------------
+def lookfor(board, piece):
+    # lookfor(board,piece) - This functions takes the 2D array that represents a board and finds  the indices of all
+    # the locations that is occupied by the specified piece. The list of  indices is returned.
     listofLocations = []
     for row in range(8):
         for col in range(8):
@@ -463,61 +454,56 @@ def lookfor(board,piece):
                 y = row
                 listofLocations.append((x,y))
     return listofLocations
-def isAttackedby(position,target_x,target_y,color):
-    #Get board
-    board = position.getboard()
-    #Get b from black or w from white
-    color = color[0]
-    #Get all the squares that are attacked by the particular side:
-    listofAttackedSquares = []
+#-----------------------------------------------------------------------------------------------------------------------
+def isAttackedby(position, target_x, target_y, color):
+    # This function checks if the square specified by (target_x,target_y) coordinates is being attacked by any of a
+    # specific colored set of pieces.
+    board = position.getboard() # get board
+    color = color[0] # get b from black or w from white
+    listofAttackedSquares = [] # get all the squares that are attacked by the particular side
     for x in range(8):
         for y in range(8):
             if board[y][x]!=0 and board[y][x][1]==color:
                 listofAttackedSquares.extend(
-                    findPossibleSquares(position,x,y,True)) #The true argument
-                #prevents infinite recursion.
-    #Check if the target square falls under the range of attack by the specified
-    #side, and return it:
-    return (target_x,target_y) in listofAttackedSquares             
-def findPossibleSquares(position,x,y,AttackSearch=False):
-    #Get individual component data from the position object:
+                    findPossibleSquares(position,x,y,True)) #The true argument prevents infinite recursion.
+    # Check if the target square falls under the range of attack by the specified side, and return it.
+    return (target_x,target_y) in listofAttackedSquares
+#-----------------------------------------------------------------------------------------------------------------------
+def findPossibleSquares(position, x, y, AttackSearch=False):
+    # This function takes as its input the current state of the chessboard, and a particular x and y coordinate.
+    # It will return for the piece on that board a list of possible coordinates it could move to, including captures
+    # and excluding illegal moves (eg moves that leave a king under check). AtttackSearch is an argument used to ensure
+    # infinite recursions do not occur. Get individual component data from the position object:
     board = position.getboard()
     player = position.getplayer()
     castling_rights = position.getCastleRights()
     EnP_Target = position.getEnP()
-    #In case something goes wrong:
-    if len(board[y][x])!=2: #Unexpected, return empty list.
-        return [] 
-    piece = board[y][x][0] #Pawn, rook, etc.
-    color = board[y][x][1] #w or b.
-    #Have the complimentary color stored for convenience:
-    enemy_color = opp(color)
-    listofTuples = [] #Holds list of attacked squares.
-
-    if piece == 'P': #The piece is a pawn.
-        if color=='w': #The piece is white
+    # In case something goes wrong:
+    if len(board[y][x])!=2: # unexpected, return empty list.
+        return []
+    piece = board[y][x][0] # pawn, rook, etc.
+    color = board[y][x][1] # w or b.
+    enemy_color = opp(color) # Have the complimentary color stored for convenience.
+    listofTuples = [] # Holds list of attacked squares.
+    if piece == 'P': # The piece is a pawn.
+        if color=='w': #T he piece is white
             if not isOccupied(board,x,y-1) and not AttackSearch:
-                #The piece immediately above is not occupied, append it.
-                listofTuples.append((x,y-1))
-                
+                listofTuples.append((x,y-1)) # The piece immediately above is not occupied, append it.
                 if y == 6 and not isOccupied(board,x,y-2):
-                    #If pawn is at its initial position, it can move two squares.
-                    listofTuples.append((x,y-2))
-            
+                    listofTuples.append((x,y-2)) # If pawn is at its initial position, it can move two squares
             if x!=0 and isOccupiedby(board,x-1,y-1,'black'):
-                #The piece diagonally up and left of this pawn is a black piece.
-                #Also, this is not an 'a' file pawn (left edge pawn)
+                # The piece diagonally up and left of this pawn is a black piece.
+                # Also, this is not an 'a' file pawn (left edge pawn)
                 listofTuples.append((x-1,y-1))
             if x!=7 and isOccupiedby(board,x+1,y-1,'black'):
-                #The piece diagonally up and right of this pawn is a black one.
-                #Also, this is not an 'h' file pawn.
+                # The piece diagonally up and right of this pawn is a black one.
+                # Also, this is not an 'h' file pawn.
                 listofTuples.append((x+1,y-1))
             if EnP_Target!=-1: #There is a possible en pasant target:
                 if EnP_Target == (x-1,y-1) or EnP_Target == (x+1,y-1):
-                    #We're at the correct location to potentially perform en
-                    #passant:
+                    #We're at the correct location to potentially perform en passant:
                     listofTuples.append(EnP_Target)
-            
+
         elif color=='b': #The piece is black, same as above but opposite side.
             if not isOccupied(board,x,y+1) and not AttackSearch:
                 listofTuples.append((x,y+1))
@@ -531,37 +517,30 @@ def findPossibleSquares(position,x,y,AttackSearch=False):
                 listofTuples.append(EnP_Target)
 
     elif piece == 'R': #The piece is a rook.
-        #Get all the horizontal squares:
-        for i in [-1,1]:
-            #i is -1 then +1. This allows for searching right and left.
-            kx = x #This variable stores the x coordinate being looked at.
-            while True: #loop till break.
-                kx = kx + i #Searching left or right
-                if kx<=7 and kx>=0: #Making sure we're still in board.
-                    
-                    if not isOccupied(board,kx,y):
-                        #The square being looked at it empty. Our rook can move
-                        #here.
+        for i in [-1,1]: # Get all the horizontal squares:
+            # i is -1 then +1. This allows for searching right and left.
+            kx = x # This variable stores the x coordinate being looked at.
+            while True: # loop till break.
+                kx = kx + i # Searching left or right
+                if kx<=7 and kx>=0: # Making sure we're still in board.
+                    if not isOccupied(board,kx,y): # The square being looked at it empty. Our rook can move here.
                         listofTuples.append((kx,y))
                     else:
-                        #The sqaure being looked at is occupied. If an enemy
-                        #piece is occupying it, it can be captured so its a valid
-                        #move. 
+                        # The sqaure being looked at is occupied. If an enemy piece is occupying it, it can be captured
+                        # so its a valid move.
                         if isOccupiedby(board,kx,y,enemy_color):
                             listofTuples.append((kx,y))
-                        #Regardless of the occupying piece color, the rook cannot
-                        #jump over. No point continuing search beyond in this
-                        #direction:
+                        # Regardless of the occupying piece color, the rook cannot jump over. No point continuing
+                        # search beyond in this direction.
                         break
-                        
-                else: #We have exceeded the limits of the board
+                else: # We have exceeded the limits of the board
                     break
-        #Now using the same method, get the vertical squares:
+        # Now using the same method, get the vertical squares:
         for i in [-1,1]:
             ky = y
             while True:
-                ky = ky + i 
-                if ky<=7 and ky>=0: 
+                ky = ky + i
+                if ky<=7 and ky>=0:
                     if not isOccupied(board,x,ky):
                         listofTuples.append((x,ky))
                     else:
@@ -570,12 +549,11 @@ def findPossibleSquares(position,x,y,AttackSearch=False):
                         break
                 else:
                     break
-        
-    elif piece == 'N': #The piece is a knight.
-        #The knight can jump across a board. It can jump either two or one
-        #squares in the x or y direction, but must jump the complimentary amount
-        #in the other. In other words, if it jumps 2 sqaures in the x direction,
-        #it must jump one square in the y direction and vice versa.
+
+    elif piece == 'N': # The piece is a knight.
+        # The knight can jump across a board. It can jump either two or one squares in the x or y direction,
+        # but must jump the complimentary amount in the other. In other words, if it jumps 2 sqaures in the
+        # x direction, it must jump one square in the y direction and vice versa.
         for dx in [-2,-1,1,2]:
             if abs(dx)==1:
                 sy = 2
@@ -583,84 +561,73 @@ def findPossibleSquares(position,x,y,AttackSearch=False):
                 sy = 1
             for dy in [-sy,+sy]:
                 listofTuples.append((x+dx,y+dy))
-        #Filter the list of tuples so that only valid squares exist.
+        # Filter the list of tuples so that only valid squares exist.
         listofTuples = filterbyColor(board,listofTuples,color)
     elif piece == 'B': # A bishop.
-        #A bishop moves diagonally. This means a change in x is accompanied by a
-        #change in y-coordiante when the piece moves. The changes are exactly the
-        #same in magnitude and direction.
-        for dx in [-1,1]: #Allow two directions in x.
-            for dy in [-1,1]: #Similarly, up and down for y.
-                kx = x #These varibales store the coordinates of the square being
-                       #observed.
+        # A bishop moves diagonally. This means a change in x is accompanied by a change in y-coordiante when the piece
+        # moves. The changes are exactly the same in magnitude and direction.
+        for dx in [-1,1]:  #Allow two directions in x.
+            for dy in [-1,1]: # Similarly, up and down for y.
+                kx = x #These varibales store the coordinates of the square being observed.
                 ky = y
-                while True: #loop till broken.
-                    kx = kx + dx #change x
-                    ky = ky + dy #change y
-                    if kx<=7 and kx>=0 and ky<=7 and ky>=0:
-                        #square is on the board
+                while True: # loop till broken.
+                    kx = kx + dx # change x
+                    ky = ky + dy # change y
+                    if kx<=7 and kx>=0 and ky<=7 and ky>=0: # square is on the board
                         if not isOccupied(board,kx,ky):
-                            #The square is empty, so our bishop can go there.
+                            # The square is empty, so our bishop can go there.
                             listofTuples.append((kx,ky))
                         else:
-                            #The square is not empty. If it has a piece of the
-                            #enemy,our bishop can capture it:
+                            # The square is not empty. If it has a piece of the enemy,our bishop can capture it.
                             if isOccupiedby(board,kx,ky,enemy_color):
                                 listofTuples.append((kx,ky))
-                            #Bishops cannot jump over other pieces so terminate
-                            #the search here:
-                            break    
+                            # Bishops cannot jump over other pieces so terminate the search here.
+                            break
                     else:
-                        #Square is not on board. Stop looking for more in this
-                        #direction:
+                        #Square is not on board. Stop looking for more in this direction.
                         break
-    
-    elif piece == 'Q': #A queen
-        #A queen's possible targets are the union of all targets that a rook and
-        #a bishop could have made from the same location
-        #Temporarily pretend there is a rook on the spot:
+    elif piece == 'Q': # A queen
+        # A queen's possible targets are the union of all targets that a rook and a bishop could have made from
+        # the same location. Temporarily pretend there is a rook on the spot:
         board[y][x] = 'R' + color
-        list_rook = findPossibleSquares(position,x,y,True)
-        #Temporarily pretend there is a bishop:
-        board[y][x] = 'B' + color
-        list_bishop = findPossibleSquares(position,x,y,True)
-        #Merge the lists:
-        listofTuples = list_rook + list_bishop
+        list_rook = findPossibleSquares(position, x, y, True)
+        board[y][x] = 'B' + color # Temporarily pretend there is a bishop:
+        list_bishop = findPossibleSquares(position, x, y, True)
+        listofTuples = list_rook + list_bishop # Merge the lists.
         #Change the piece back to a queen:
         board[y][x] = 'Q' + color
     elif piece == 'K': # A king!
-        #A king can make one step in any direction:
-        for dx in [-1,0,1]:
+        for dx in [-1,0,1]: # A king can make one step in any direction:
             for dy in [-1,0,1]:
                 listofTuples.append((x+dx,y+dy))
-        #Make sure the targets aren't our own piece or off-board:
+        # Make sure the targets aren't our own piece or off-board:
         listofTuples = filterbyColor(board,listofTuples,color)
         if not AttackSearch:
-            #Kings can potentially castle:
+            # Kings can potentially castle:
             right = castling_rights[player]
-            #Kingside
-            if (right[0] and #has right to castle
-            board[y][7]!=0 and #The rook square is not empty
-            board[y][7][0]=='R' and #There is a rook at the appropriate place
-            not isOccupied(board,x+1,y) and #The square on its right is empty
-            not isOccupied(board,x+2,y) and #The second square beyond is also empty
-            not isAttackedby(position,x,y,enemy_color) and #The king isn't under atack
-            not isAttackedby(position,x+1,y,enemy_color) and #Or the path through which
-            not isAttackedby(position,x+2,y,enemy_color)):#it will move
+            # Kingside
+            if (right[0] and # has right to castle
+            board[y][7]!=0 and # The rook square is not empty
+            board[y][7][0]=='R' and # There is a rook at the appropriate place
+            not isOccupied(board,x+1,y) and # The square on its right is empty
+            not isOccupied(board,x+2,y) and # The second square beyond is also empty
+            not isAttackedby(position,x,y,enemy_color) and # The king isn't under atack
+            not isAttackedby(position,x+1,y,enemy_color) and # Or the path through which
+            not isAttackedby(position,x+2,y,enemy_color)): # it will move
                 listofTuples.append((x+2,y))
             #Queenside
-            if (right[1] and #has right to castle
-            board[y][0]!=0 and #The rook square is not empty
-            board[y][0][0]=='R' and #The rook square is not empty
-            not isOccupied(board,x-1,y)and #The square on its left is empty
-            not isOccupied(board,x-2,y)and #The second square beyond is also empty
-            not isOccupied(board,x-3,y) and #And the one beyond.
-            not isAttackedby(position,x,y,enemy_color) and #The king isn't under atack
-            not isAttackedby(position,x-1,y,enemy_color) and #Or the path through which
-            not isAttackedby(position,x-2,y,enemy_color)):#it will move
-                listofTuples.append((x-2,y)) #Let castling be an option.
+            if (right[1] and # has right to castle
+            board[y][0]!=0 and # The rook square is not empty
+            board[y][0][0]=='R' and # The rook square is not empty
+            not isOccupied(board,x-1,y)and # The square on its left is empty
+            not isOccupied(board,x-2,y)and # The second square beyond is also empty
+            not isOccupied(board,x-3,y) and # And the one beyond.
+            not isAttackedby(position,x,y,enemy_color) and # The king isn't under atack
+            not isAttackedby(position,x-1,y,enemy_color) and # Or the path through which
+            not isAttackedby(position,x-2,y,enemy_color)): # it will move
+                listofTuples.append((x-2,y)) # Let castling be an option.
 
-    #Make sure the king is not under attack as a result of this move:
+    # Make sure the king is not under attack as a result of this move:
     if not AttackSearch:
         new_list = []
         for tupleq in listofTuples:
@@ -672,6 +639,7 @@ def findPossibleSquares(position,x,y,AttackSearch=False):
                 new_list.append(tupleq)
         listofTuples = new_list
     return listofTuples
+#-----------------------------------------------------------------------------------------------------------------------
 def makemove(position,x,y,x2,y2):
     #Get data from the position:
     board = position.getboard()
@@ -693,7 +661,7 @@ def makemove(position,x,y,x2,y2):
     #Make the move:
     board[y2][x2] = board[y][x]
     board[y][x] = 0
-    
+
     #Special piece requirements:
     #King:
     if piece == 'K':
@@ -706,7 +674,7 @@ def makemove(position,x,y,x2,y2):
                 l = 7
             else:
                 l = 0
-            
+
             if x2>x:
                     board[l][5] = 'R'+color
                     board[l][7] = 0
@@ -762,6 +730,7 @@ def makemove(position,x,y,x2,y2):
     position.setCastleRights(castling_rights)
     position.setEnP(EnP_Target)
     position.setHMC(half_move_clock)
+#-----------------------------------------------------------------------------------------------------------------------
 def opp(color):
     color = color[0]
     if color == 'w':
@@ -769,6 +738,7 @@ def opp(color):
     else:
         oppcolor = 'w'
     return oppcolor
+#-----------------------------------------------------------------------------------------------------------------------
 def isCheck(position,color):
     #Get data:
     board = position.getboard()
@@ -780,8 +750,8 @@ def isCheck(position,color):
     #Check if the position of the king is attacked by
     #the enemy and return the result:
     return isAttackedby(position,x,y,enemy)
+#-----------------------------------------------------------------------------------------------------------------------
 def isCheckmate(position,color=-1):
-    
     if color==-1:
         return isCheckmate(position,'white') or isCheckmate(position,'b')
     color = color[0]
@@ -790,6 +760,7 @@ def isCheckmate(position,color=-1):
             return True
     #Either the king is not under attack or there are possible moves to be played:
     return False
+#-----------------------------------------------------------------------------------------------------------------------
 def isStalemate(position):
     #Get player to move:
     player = position.getplayer()
@@ -803,6 +774,7 @@ def isStalemate(position):
         #It is a stalemate.
         return True
     return False
+#-----------------------------------------------------------------------------------------------------------------------
 def getallpieces(position,color):
     #Get the board:
     board = position.getboard()
@@ -812,6 +784,7 @@ def getallpieces(position,color):
             if isOccupiedby(board,i,j,color):
                 listofpos.append((i,j))
     return listofpos
+#-----------------------------------------------------------------------------------------------------------------------
 def allMoves(position, color):
     #Find if it is white to play or black:
     if color==1:
@@ -830,6 +803,7 @@ def allMoves(position, color):
             #Save them all as possible moves:
              moves.append([pos,target])
     return moves
+#-----------------------------------------------------------------------------------------------------------------------
 def pos2key(position):
     #Get board:
     board = position.getboard()
