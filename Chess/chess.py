@@ -39,6 +39,7 @@
 # 28/11/2019 05:50 put all shades in an folder
 # 28/11/2019 05:50 openingTable.txt is damaged, create new file (make a better one later)
 # 28/11/2019 12:00 keep all globals on one place
+# 28/11/2019 16:30 sounfdiles added
 
 # Ensure that Pygame is installed
 
@@ -173,6 +174,7 @@ searched          = {} # global variable that allows negamax to keep track of no
 
 # Load the images:
 background              = pygame.image.load(os.path.join(mediaPath, 'board.png')).convert()
+icon                    = pygame.image.load(os.path.join(mediaPath, "chess.jpg")) # shown in windows title and taskbar
 circle_image_green      = pygame.image.load(os.path.join(shadesImagePath, 'green_circle_small.png')).convert_alpha()
 circle_image_capture    = pygame.image.load(os.path.join(shadesImagePath, 'green_circle_neg.png')).convert_alpha()
 circle_image_red        = pygame.image.load(os.path.join(shadesImagePath, 'red_circle_big.png')).convert_alpha()
@@ -187,7 +189,7 @@ playblack_pic           = pygame.image.load(os.path.join(shadesImagePath, 'playB
 flipEnabled_pic         = pygame.image.load(os.path.join(shadesImagePath, 'flipEnabled.png')).convert_alpha()
 flipDisabled_pic        = pygame.image.load(os.path.join(shadesImagePath, 'flipDisabled.png')).convert_alpha()
 
-#Rescale the images so that each piece can fit in a square:
+# Rescale the images so that each piece can fit in a square:
 background              = pygame.transform.scale(background, (boardSize, boardSize))
 circle_image_green      = pygame.transform.scale(circle_image_green, (squareSize, squareSize))
 circle_image_capture    = pygame.transform.scale(circle_image_capture, (squareSize, squareSize))
@@ -203,28 +205,23 @@ playblack_pic           = pygame.transform.scale(playblack_pic, (squareSize*4,sq
 flipEnabled_pic         = pygame.transform.scale(flipEnabled_pic, (squareSize*4,squareSize*4))
 flipDisabled_pic        = pygame.transform.scale(flipDisabled_pic, (squareSize*4,squareSize*4))
 
+# Start pygame
+pygame.init()
+pygame.display.set_caption('Shallow Green')
+pygame.display.set_icon(icon)
+screen.blit(background,(0,0))
 
+# Load the sounds:
+snd_mov = pygame.mixer.Sound(soundPath + '/move.wav')
+snd_cap = pygame.mixer.Sound(soundPath + '/capture.wav')
 
-
-
-########################################################
-#Class Definitions:
-#####################################################
-#There are three classes used in this program:
-# 1. GamePosition - This class stores a chess position. A chess position constitutes several
-# features that specify the state of the game, such as the the player that has to play next,
-# castling rights of the players, number of irreversible moves played so far, the positions of
-# pieces on the board, etc.
-# 2. Shades - This is used for GUI. A shade is a transparent colored image that is displayed on
-# a specific square of the chess board, in order to show various things to the user such as
-# the squares to which a piece may move, the square that is currently selected, etc. The class
-# stores a reference to the image that the instance of the class should display when needed. It
-# also stores the coordinates at which the shade would be applied.
-# 3. Piece - This is also used for GUI. A Piece object stores the information about the image
-# that a piece should display (pawn, queen, etc.) and the coordinate at which it should be
-# displayed on thee chess board.
-##########################################################
+#-----------------------------------------------------------------------------------------------------------------------
 class GamePosition:
+    '''
+    GamePosition - This class stores a chess position. A chess position constitutes several features that specify
+    the state of the game, such as the the player that has to play next, castling rights of the players, number
+    of irreversible moves played so far, the positions of pieces on the board, etc.
+    '''
     def __init__(self,board,player,castling_rights,EnP_Target,HMC,history = {}):
         self.board = board #A 2D array containing information about piece postitions. Check main
         #function to see an example of such a representation.
@@ -259,35 +256,41 @@ class GamePosition:
         return self.HMC
     def setHMC(self,HMC):
         self.HMC = HMC
-    def checkRepition(self):
-        #Returns True if any of of the values in the history dictionary is greater than 3.
-        #This would mean a position had been repeated at least thrice in order to reach the
-        #current position in this game.
+    def checkRepition(self): # Returns True if any of of the values in the history dictionary is greater than 3. This
+        # would mean a position had been repeated at least thrice in order to reach the current position in this game.
         return any(value>=3 for value in self.history.values())
-    def addtoHistory(self,position):
-        #Generate a unique key out of the current position:
+    def addtoHistory(self,position): # Generate a unique key out of the current position.
         key = pos2key(position)
-        #Add it to the history dictionary.
-        self.history[key] = self.history.get(key,0) + 1
+        self.history[key] = self.history.get(key,0) + 1 # Add it to the history dictionary.
     def gethistory(self):
         return self.history
-    def clone(self):
-        #This method returns another instance of the current object with exactly the same
-        #parameters but independent of the current object.
+    def clone(self): # This method returns another instance of the current object with exactly the same parameters
+        # but independent of the current object.
         clone = GamePosition(copy.deepcopy(self.board), #Independent copy
                              self.player,
                              copy.deepcopy(self.castling), #Independent copy
                              self.EnP,
                              self.HMC)
         return clone
+#-----------------------------------------------------------------------------------------------------------------------
 class Shades:
-    #Self explanatory:
+    '''
+    Shades - This is used for GUI. A shade is a transparent colored image that is displayed on a specific square of the
+    chess board, in order to show various things to the user such as the squares to which a piece may move, the square
+    that is currently selected, etc. The class stores a reference to the image that the instance of the class should
+    display when needed. It also stores the coordinates at which the shade would be applied.
+    '''
     def __init__(self,image,coord):
         self.image = image
         self.pos = coord
     def getInfo(self):
         return [self.image,self.pos]
+#-----------------------------------------------------------------------------------------------------------------------
 class Piece:
+    '''
+    Piece - This is also used for GUI. A Piece object stores the information about the image that a piece should
+    display (pawn, queen, etc.) and the coordinate at which it should be displayed on thee chess board.
+    '''
     def __init__(self, pieceInfo, chessCoord):
         #pieceinfo is a string such as 'Qb'. The Q represents Queen and b
         #shows the fact that it is black:
@@ -314,22 +317,9 @@ class Piece:
             left_y = 0
         else:
             left_y = squareSize
-
         self.pieceInfo = pieceInfo
-        #subsection defines the part of the sprite image that represents our
-        #piece:
-        self.subsection = (left_x,left_y,squareSize,squareSize)
-        #There are two ways that the position of a piece is defined on the
-        #board. The default one used is the chess_coord, which stores something
-        #like (3,2). It represents the chess coordinate where our piece image should
-        #be blitted. On the other hand, is pos does not hold the default value
-        #of (-1,-1), it will hold pixel coordinates such as (420,360) that represents
-        #the location in the window that the piece should be blitted on. This is
-        #useful for example if our piece is transitioning from a square to another:
         self.chess_coord = chessCoord
         self.pos = (-1,-1)
-
-    #The methods are self explanatory:
     def getInfo(self):
         return [self.chess_coord, self.pieceInfo, self.pos]
     def setpos(self,pos):
@@ -341,20 +331,8 @@ class Piece:
     def __repr__(self):
         #useful for debugging
         return self.pieceInfo+'('+str(chess_coord[0])+','+str(chess_coord[1])+')'
+#-----------------------------------------------------------------------------------------------------------------------
 
-
-########################################################
-#Function Definitions:
-#####################################################
-
-# The functions in this file may be classified into three main groups:
-# 1. Chess Processing Functions - these are the functions that work with variables
-# that hold the information about game state.
-# 2. GUI Functions - These are the functions that work together to display the
-# chess board to the user and get the user's input as well, so that they may be
-# passed on to the Chess Processing Functions.
-# 3. AI related functions - These are the functions involved in helping the
-# computer make decisions in terms of what should be played.
 
 #///////////////////////////////CHESS PROCESSING FUNCTIONS////////////////////
 #
@@ -441,48 +419,6 @@ class Piece:
 # to make the game look nice.
 #
 
-##//////////////////////////////////////AI RELATED FUNCTIONS////////////////////////////////
-#
-# negamax(position,depth,alpha,beta,colorsign,bestMoveReturn,root=True) - This 
-# function takes as its inputs a position, and a depth to which moves should be 
-# analysed. It will generate moves and analyse resulting positions to decide the
-# best move to be played for the AI. Alpha and beta are lower and upper bounds to
-# a position's possible
-# score values and allows for alpha-beta pruning. Colorsign indicates the player
-# to move. bestMoveReturn is a list that will be assigned the move to be played.
-# Returning is not possible in this case because threading is used. root is a 
-# variable that keeps track of whether the original node is processing now or a 
-# lower node. Alpha beta pruning is not explained in detail here so I recommend
-# learning more about it if the code does not make sense.
-# Note that the function does not always traverse a tree to give back the move
-# to be played by the AI. It also checks the opening table to see if there is a 
-# prerecorded move that it can play without searching. Scoring of each position
-# is also stored in a global dictionary to allow for time-saving if the same 
-# position occurs elsewhere in the tree. The code used here is adapted from the 
-# pseudocode provided at Wikipidea:
-# https://en.wikipedia.org/wiki/Negamax#Negamax_with_alpha_beta_pruning
-#
-# evaluate(position) - This function takes as input a position to be analysed.
-# It will look at the positioning of pieces on the board to judge whether white
-# has an advantage or black. If it returns zero, it means it considers the 
-# position to be equal for both sides. A positive value is an advantage to the
-# white side and a negative value is an advantage to the black side.
-#
-# pieceSquareTable(flatboard,gamephase) - Gives a position a score based solely
-# on tables that define points for each position for each piece type.
-#
-# doubledPawns(board,color) - This function counts the number of doubled pawns
-# for a player and returns it. Doubled pawns are those that are on the same file.
-#
-# blockedPawns(board,color) - This function counts the number of blocked pawns
-# for a player and returns it. Blocked pawns are those that have a piece in front
-# of them and so cannot advance forward.
-#
-# isolatedPawns(board,color) - This function counts the number of isolated pawns
-# for a player. These are pawns that do not have supporting pawns on adjacent files
-# and so are difficult to protect.
-#
-#
 ##################################/////CHESS PROCESSING FUNCTIONS\\\\########################
 def drawText(board):
     for i in range(len(board)):
@@ -964,6 +900,7 @@ def createPieces(board):
     return [listofWhitePieces,listofBlackPieces] # Return both.
 #-----------------------------------------------------------------------------------------------------------------------
 def createShades(listofTuples):
+    global listofShades 
     listofShades = [] # Empty the global var list
     if isTransition:
         return # Nothing should be shaded when a piece is being animated.
@@ -1052,14 +989,25 @@ def drawBoard():
         else:
             screen.blit(pieceImage, pos)
 #-----------------------------------------------------------------------------------------------------------------------
-#                    A I     R E L A T E D     F U N C T I O N S
+#                             A I     R E L A T E D     F U N C T I O N S
 #-----------------------------------------------------------------------------------------------------------------------
 def negamax(position, depth, alpha, beta, colorsign, bestMoveReturn, root=True):
-    #First check if the position is already stored in the opening database dictionary:
+    # negamax(position,depth,alpha,beta,colorsign,bestMoveReturn,root=True) - This function takes as its inputs a
+    # position, and a depth to which moves should be  analysed. It will generate moves and analyse resulting positions
+    # to decide the best move to be played for the AI. Alpha and beta are lower and upper bounds to a position's
+    # possible score values and allows for alpha-beta pruning. Colorsign indicates the player to move. bestMoveReturn
+    # is a list that will be assigned the move to be played. Returning is not possible in this case because threading
+    # is used. root is a  variable that keeps track of whether the original node is processing now or a  lower node.
+    # Alpha beta pruning is not explained in detail here so I recommend learning more about it if the code does not
+    # make sense. Note that the function does not always traverse a tree to give back the move to be played by the AI.
+    # It also checks the opening table to see if there is a prerecorded move that it can play without searching.
+    # Scoring of each position is also stored in a global dictionary to allow for time-saving if the same  position
+    # occurs elsewhere in the tree. The code used here is adapted from the pseudocode provided at
+    # Wikipidea: https://en.wikipedia.org/wiki/Negamax#Negamax_with_alpha_beta_pruning
     if root:
         #Generate key from current position:
         key = pos2key(position)
-        if key in openings:
+        if key in openings: # First check if the position is already stored in the opening database dictionary:
             print("position found in openings")
             #Return the best move to be played:
             bestMoveReturn[:] = random.choice(openings[key])
@@ -1077,12 +1025,9 @@ def negamax(position, depth, alpha, beta, colorsign, bestMoveReturn, root=True):
     #Initialize a best move for the root node:
     if root:
         bestMove = moves[0]
-    #Initialize the best move's value:
-    bestValue = -100000
-    #Go through each move:
-    for move in moves:
-        #Make a clone of the current move and perform the move on it:
-        newpos = position.clone()
+    bestValue = -100000 # initialize the best move's value
+    for move in moves: # go through each move
+        newpos = position.clone() # make a clone of the current move and perform the move on it
         makemove(newpos,move[0][0],move[0][1],move[1][0],move[1][1])
         #Generate the key for the new resulting position:
         key = pos2key(newpos)
@@ -1113,19 +1058,21 @@ def negamax(position, depth, alpha, beta, colorsign, bestMoveReturn, root=True):
         return
     #Otherwise, return the bestValue (i.e. value for this node.)
     return bestValue
+#-----------------------------------------------------------------------------------------------------------------------
 def evaluate(position):
+    # This function takes as input a position to be analysed. It will look at the positioning of pieces on the board
+    # to judge whether white has an advantage or black. If it returns zero, it means it considers the position to be
+    # equal for both sides. A positive value is an advantage to the white side and a negative value  is an advantage
+    # to the black side.
     if isCheckmate(position,'white'):
         #Major advantage to black
         return -20000
     if isCheckmate(position,'black'):
         #Major advantage to white
         return 20000
-    #Get the board:
-    board = position.getboard()
-    #Flatten the board to a 1D array for faster calculations:
-    flatboard = [x for row in board for x in row]
-    #Create a counter object to count number of each pieces:
-    c = Counter(flatboard)
+    board = position.getboard() # get the board
+    flatboard = [x for row in board for x in row] # flatten the board to a 1D array for faster calculations
+    c = Counter(flatboard) # create a counter object to count number of each pieces:
     Qw = c['Qw']
     Qb = c['Qb']
     Rw = c['Rw']
@@ -1136,58 +1083,43 @@ def evaluate(position):
     Nb = c['Nb']
     Pw = c['Pw']
     Pb = c['Pb']
-    #Note: The above choices to flatten the board and to use a library
-    #to count pieces were attempts at making the AI more efficient.
-    #Perhaps using a 1D board throughout the entire program is one way
-    #to make the code more efficient.
-    #Calculate amount of material on both sides and the number of moves
-    #played so far in order to determine game phase:
+    # Note: The above choices to flatten the board and to use a library to count pieces were attempts at making the AI
+    # more efficient. Perhaps using a 1D board throughout the entire program is one way to make the code more efficient.
+    #Calculate amount of material on both sides and the number of moves played so far in order to determine game phase.
     whiteMaterial = 9*Qw + 5*Rw + 3*Nw + 3*Bw + 1*Pw
     blackMaterial = 9*Qb + 5*Rb + 3*Nb + 3*Bb + 1*Pb
     numofmoves = len(position.gethistory())
     gamephase = 'opening'
     if numofmoves>40 or (whiteMaterial<14 and blackMaterial<14):
         gamephase = 'ending'
-    #A note again: Determining game phase is again one the attempts
-    #to make the AI smarter when analysing boards and has not been 
-    #implemented to its full potential.
-    #Calculate number of doubled, blocked, and isolated pawns for 
-    #both sides:
+    # A note again: Determining game phase is again one the attempts to make the AI smarter when analysing boards and
+    # has not been implemented to its full potential. Calculate number of doubled, blocked, and isolated pawns for
+    # both sides:
     Dw = doubledPawns(board,'white')
     Db = doubledPawns(board,'black')
     Sw = blockedPawns(board,'white')
     Sb = blockedPawns(board,'black')
     Iw = isolatedPawns(board,'white')
     Ib = isolatedPawns(board,'black')
-    #Evaluate position based on above data:
-    evaluation1 = 900*(Qw - Qb) + 500*(Rw - Rb) +330*(Bw-Bb
-                )+320*(Nw - Nb) +100*(Pw - Pb) +-30*(Dw-Db + Sw-Sb + Iw- Ib
-                )
-    #Evaluate position based on piece square tables:
-    evaluation2 = pieceSquareTable(flatboard,gamephase)
-    #Sum the evaluations:
-    evaluation = evaluation1 + evaluation2
-    #Return it:
-    return evaluation
+    # Evaluate position based on above data.
+    evaluation1 = 900*(Qw - Qb) + 500*(Rw - Rb) +330*(Bw-Bb)+320*(Nw - Nb) +100*(Pw - Pb) +-30*(Dw-Db + Sw-Sb + Iw- Ib)
+    evaluation2 = pieceSquareTable(flatboard,gamephase) # evaluate position based on piece square tables
+    evaluation = evaluation1 + evaluation2 # Sum the evaluations
+    return evaluation # return it
+#-----------------------------------------------------------------------------------------------------------------------
 def pieceSquareTable(flatboard,gamephase):
-    #Initialize score:
-    score = 0
-    #Go through each square:
-    for i in range(64):
+    # Gives a position a score based solely on tables that define points for each position for each piece type.
+    score = 0 # initialize score:
+    for i in range(64): # go through each square
         if flatboard[i]==0:
-            #Empty square
-            continue
-        #Get data:
-        piece = flatboard[i][0]
+            continue # empty square
+        piece = flatboard[i][0] # get data
         color = flatboard[i][1]
         sign = +1
-        #Adjust index if black piece, since piece sqaure tables
-        #were designed for white:
-        if color=='b':
+        if color=='b': # adjust index if black piece, since piece sqaure tables were designed for white
             i = int((7-i/8)*8 + i%8)
             sign = -1
-        #Adjust score:
-        if piece=='P':
+        if piece=='P': # adjust score
             score += sign*pawn_table[i]
         elif piece=='N':
             score+= sign*knight_table[i]
@@ -1197,58 +1129,56 @@ def pieceSquareTable(flatboard,gamephase):
             score+=sign*rook_table[i]
         elif piece=='Q':
             score+=sign*queen_table[i]
-        elif piece=='K':
-            #King has different table values based on phase
-            #of the game:
+        elif piece=='K': # King has different table values based on phase of the game
             if gamephase=='opening':
                 score+=sign*king_table[i]
             else:
                 score+=sign*king_endgame_table[i]
-    return score  
-def doubledPawns(board,color):
+    return score
+#-----------------------------------------------------------------------------------------------------------------------
+def doubledPawns(board, color):
+    # This function counts the number of doubled pawns for a player and returns it.
+    # Doubled pawns are those that are on the same file.
     color = color[0]
-    #Get indices of pawns:
-    listofpawns = lookfor(board,'P'+color)
-    #Count the number of doubled pawns by counting occurences of
-    #repeats in their x-coordinates:
+    listofpawns = lookfor(board,'P'+color) # get indices of pawns
     repeats = 0
-    temp = []
+    temp = [] # count the number of doubled pawns by counting occurences of repeats in their x-coordinates
     for pawnpos in listofpawns:
         if pawnpos[0] in temp:
             repeats = repeats + 1
         else:
             temp.append(pawnpos[0])
     return repeats
+#-----------------------------------------------------------------------------------------------------------------------
 def blockedPawns(board,color):
+    # This function counts the number of blocked pawns for a player and returns it.
+    # Blocked pawns are those that have a piece in front of them and so cannot advance forward.
     color = color[0]
     listofpawns = lookfor(board,'P'+color)
     blocked = 0
-    #Self explanatory:
     for pawnpos in listofpawns:
-        if ((color=='w' and isOccupiedby(board,pawnpos[0],pawnpos[1]-1,
-                                       'black'))
-            or (color=='b' and isOccupiedby(board,pawnpos[0],pawnpos[1]+1,
-                                       'white'))):
+        if ((color=='w' and isOccupiedby(board, pawnpos[0], pawnpos[1]-1, 'black'))
+            or (color=='b' and isOccupiedby(board,pawnpos[0],pawnpos[1]+1, 'white'))):
             blocked = blocked + 1
     return blocked
+#-----------------------------------------------------------------------------------------------------------------------
 def isolatedPawns(board,color):
+    # This function counts the number of isolated pawns for a player.
+    # These are pawns that do not have supporting pawns on adjacent files and so are difficult to protect.
     color = color[0]
     listofpawns = lookfor(board,'P'+color)
-    #Get x coordinates of all the pawns:
-    xlist = [x for (x,y) in listofpawns]
+    xlist = [x for (x,y) in listofpawns] # get x coordinates of all the pawns
     isolated = 0
     for x in xlist:
         if x!=0 and x!=7:
-            #For non-edge cases:
-            if x-1 not in xlist and x+1 not in xlist:
+             if x-1 not in xlist and x+1 not in xlist: # for non-edge cases
                 isolated+=1
         elif x==0 and 1 not in xlist:
-            #Left edge:
-            isolated+=1
+            isolated+=1 # left edge
         elif x==7 and 6 not in xlist:
-            #Right edge:
-            isolated+=1
+            isolated+=1 # right edge:
     return isolated
+#-----------------------------------------------------------------------------------------------------------------------
 
 #########MAIN FUNCTION####################################################
 #Initialize the board:
@@ -1338,98 +1268,52 @@ king_endgame_table = [-50,-40,-30,-20,-20,-30,-40,-50,
                       -30,-10, 20, 30, 30, 20,-10,-30,
                       -30,-30,  0,  0,  0,  0,-30,-30,
                       -50,-30,-30,-30,-30,-30,-30,-50]
-
-#Make the GUI:
-#Start pygame
-pygame.init()
-#Load the screen with any arbitrary size for now:
-
-pygame.display.set_caption('Shallow Green')
-screen.blit(background,(0,0))
-
-#Generate a list of pieces that should be drawn on the board:
-listofWhitePieces,listofBlackPieces = createPieces(board)
-#(the list contains references to objects of the class Piece)
+#-----------------------------------------------------------------------------------------------------------------------
 
 
+
+listofWhitePieces,listofBlackPieces = createPieces(board) # A list of pieces that should be drawn on the board.
 clock = pygame.time.Clock() #Helps controlling fps of the game.
-
-
-
 isDraw = False #Will store True if the game ended with a draw
 
-
-
-
-#If openingTable.txt exists, read from it and load the opening moves to the local dictionary.
-#If it doesn't, create a new one to write to if Recording is enabled:
-try:
+try: # If openingTable.txt exists, read from it and load the opening moves to the local dictionary.
     file_handle = open(os.path.dirname(__file__) + '/openingTable.txt','rb')
     openings=pickle.loads(file_handle.read())
 except:
     print("OpeningTable not found or not readable")
 
-
-
-
-
-
-#########################INFINITE LOOP#####################################
-#The program remains in this loop until the user quits the application
-while not gameEnded:
+while not gameEnded: # The program remains in this loop until the user quits the application.
     if isMenu:
-        #Menu needs to be shown right now.
-        #Blit the background:
         screen.blit(background,(0,0))
         if isAI==-1:
-            #The user has not selected between playing against the AI
-            #or playing against a friend.
-            #So allow them to choose between playing with a friend or the AI:
             screen.blit(withfriend_pic,(offset, offset+squareSize*2))
             screen.blit(withAI_pic,(offset+squareSize*4, offset+squareSize*2))
         elif isAI==True:
-            #The user has selected to play against the AI.
-            #Allow the user to play as white or black:
             screen.blit(playwhite_pic,(offset,offset+squareSize*2))
             screen.blit(playblack_pic,(offset+squareSize*4, offset+squareSize*2))
         elif isAI==False:
-            #The user has selected to play with a friend.
-            #Allow choice of flipping the board or not flipping the board:
             screen.blit(flipDisabled_pic,(offset,offset+squareSize*2))
             screen.blit(flipEnabled_pic,(offset+squareSize*4, offset+squareSize*2))
         if isFlip!=-1:
-            #All settings have already been specified.
-            #Draw all the pieces onto the board:
-            drawBoard()
-            #Don't let the menu ever appear again:
-            isMenu = False
-            #In case the player chose to play against the AI and decided to 
-            #play as black, call upon the AI to make a move:
-            if isAI and AIPlayer==0:
-                colorsign=1
+            drawBoard() # Draw all the pieces onto the board,
+            isMenu = False # Don't let the menu ever appear again.
+            if isAI and AIPlayer==0: # In case the player chose to play against the AI and decided to
+                colorsign=1          # play as black, call upon the AI to make a move:
                 bestMoveReturn = []
                 move_thread = threading.Thread(target = negamax,
                             args = (position,3,-1000000,1000000,colorsign,bestMoveReturn))
                 move_thread.start()
                 isAIThink = True
             continue
-        for event in pygame.event.get():
-            #Handle the events while in menu:
-            if event.type==QUIT:
-                #Window was closed.
+        for event in pygame.event.get(): # Handle the events while in menu
+            if event.type==QUIT: # Window was closed.
                 gameEnded = True
                 break
-            if event.type == MOUSEBUTTONUP:
-                #The mouse was clicked somewhere.
-                #Get the coordinates of click:
-                pos = pygame.mouse.get_pos()
-                #Determine if left box was clicked or right box.
-                #Then choose an appropriate action based on current
-                #state of menu:
-                if (pos[0] < offset+squareSize*4 and
+            if event.type == MOUSEBUTTONUP:           # The mouse was clicked somewhere.
+                pos = pygame.mouse.get_pos()          # Get the coordinates of click
+                if (pos[0] < offset+squareSize*4 and  # Determine if left box was clicked or right box.
                 pos[1]> offset+squareSize*2 and
-                pos[1]< offset+squareSize*6):
-                    #LEFT SIDE CLICKED
+                pos[1]< offset+squareSize*6):         # LEFT SIDE CLICKED
                     if isAI == -1:
                         isAI = False
                     elif isAI==True:
@@ -1439,8 +1323,7 @@ while not gameEnded:
                         isFlip = False
                 elif (pos[0]> offset+squareSize*4 and
                 pos[1]> offset+squareSize*2 and
-                pos[1]< offset+squareSize*6):
-                    #RIGHT SIDE CLICKED
+                pos[1]< offset+squareSize*6):         # RIGHT SIDE CLICKED
                     if isAI == -1:
                         isAI = True
                     elif isAI==True:
@@ -1448,18 +1331,11 @@ while not gameEnded:
                         isFlip = False
                     elif isAI==False:
                         isFlip=True
-
-        #Update the display:
         pygame.display.update()
-
-        #Run at specific fps:
-        clock.tick(60)
+        clock.tick(60) # Run at specific fps
         continue
-    #Menu part was done if this part reached.
-    #If the AI is currently thinking the move to play
-    #next, show some fancy looking squares to indicate
-    #that.
-    #Do it every 6 frames so it's not too fast:
+    # Menu part was done if this part reached. If the AI is currently thinking the move to play next,
+    # show some fancy looking squares to indicate that. Do it every 3 frames so it's not too fast:
     numm+=1
     if isAIThink and numm%3==0:
         ax+=1
@@ -1470,67 +1346,48 @@ while not gameEnded:
             ax,ay=0,0
         if ax%4==0:
             createShades([])
-        #If the AI is white, start from the opposite side (since the board is flipped)
-        if AIPlayer==0:
+        if AIPlayer==0: # If the AI is white, start from the opposite side (since the board is flipped)
             listofShades.append(Shades(greenbox_image,(7-ax,7-ay)))
         else:
             listofShades.append(Shades(greenbox_image,(ax,ay)))
-    
+
     for event in pygame.event.get():
-        #Deal with all the user inputs:
-        if event.type==QUIT:
-            #Window was closed.
-            gameEnded = True
-        
+        if event.type==QUIT: # Deal with all the user inputs.
+            gameEnded = True # Window was closed.
             break
-        #Under the following conditions, user input should be
-        #completely ignored:
+        #Under the following conditions, user input should be completely ignored:
         if chessEnded or isTransition or isAIThink:
             continue
-        #isDown means a piece is being dragged.
-        if not isDown and event.type == MOUSEBUTTONDOWN:
-            #Mouse was pressed down.
-            #Get the oordinates of the mouse
-            pos = pygame.mouse.get_pos()
-            #convert to chess coordinates:
-            chess_coord = pixels2coord(pos)
+        if not isDown and event.type == MOUSEBUTTONDOWN: # isDown means a piece is being dragged.
+            pos = pygame.mouse.get_pos() # Mouse was pressed down. Get the oordinates of the mouse
+            chess_coord = pixels2coord(pos) # convert to chess coordinates
             x = chess_coord[0]
             y = chess_coord[1]
-            #If the piece clicked on is not occupied by your own piece,
-            #ignore this mouse click:
+            #If the piece clicked on is not occupied by your own piece, ignore this mouse click:
             if not isOccupiedby(board,x,y,'wb'[player]):
                 continue
-            #Now we're sure the user is holding their mouse on a 
-            #piecec that is theirs.
+            # Now we're sure the user is holding their mouse on a piecec that is theirs.
             #Get reference to the piece that should be dragged around or selected:
             dragPiece = getPiece(chess_coord)
-            #Find the possible squares that this piece could attack:
-            listofTuples = findPossibleSquares(position,x,y)
-            #Highlight all such squares:
-            createShades(listofTuples)
-            #A green box should appear on the square which was selected, unless
-            #it's a king under check, in which case it shouldn't because the king
-            #has a red color on it in that case.
-            if ((dragPiece.pieceInfo[0]=='K') and
-                (isCheck(position,'white') or isCheck(position,'black'))):
+            listofTuples = findPossibleSquares(position,x,y) # Find the possible squares that this piece could attack.
+            createShades(listofTuples) # Highlight all such squares
+            #A green box should appear on the square which was selected, unless it's a king under check,
+            # in which case it shouldn't because the king has a red color on it in that case.
+            if ((dragPiece.pieceInfo[0]=='K') and (isCheck(position,'white') or isCheck(position,'black'))):
                 None
             else:
                 listofShades.append(Shades(greenbox_image,(x,y)))
-            #A piece is being dragged:
-            isDown = True       
-        if (isDown or isClicked) and event.type == MOUSEBUTTONUP:
-            #Mouse was released.
+            isDown = True # A piece is being dragged.
+        if (isDown or isClicked) and event.type == MOUSEBUTTONUP: # Mouse was released.
             isDown = False
-            #Snap the piece back to its coordinate position
-            dragPiece.setpos((-1,-1))
-            #Get coordinates and convert them:
-            pos = pygame.mouse.get_pos()
+            dragPiece.setpos((-1,-1)) # Snap the piece back to its coordinate position
+            pos = pygame.mouse.get_pos() # Get coordinates and convert them
             chess_coord = pixels2coord(pos)
             x2 = chess_coord[0]
             y2 = chess_coord[1]
             #Initialize:
             isTransition = False
-            if (x,y)==(x2,y2): #NO dragging occured 
+            if (x,y)==(x2,y2): #NO dragging occured
                 #(ie the mouse was held and released on the same square)
                 if not isClicked: #nothing had been clicked previously
                     #This is the first click
@@ -1571,15 +1428,12 @@ while not gameEnded:
                 #Make sure it isn't already in there:
                 if [(x,y),(x2,y2)] not in openings[key]: 
                     openings[key].append([(x,y),(x2,y2)])
-            
-            # play a sound
-            if isOccupied(board, x2, y2):
-                pygame.mixer.music.load(soundPath + '/capture.mp3')
+
+            if isOccupied(board, x2, y2): # play a sound
+                pygame.mixer.Sound.play(snd_cap)
             else:
-                pygame.mixer.music.load(soundPath + '/move.mp3')
-            pygame.mixer.music.play(0)
-            #Make the move:
-            makemove(position,x,y,x2,y2)
+                pygame.mixer.Sound.play(snd_mov)
+            makemove(position,x,y,x2,y2) # Make the move.
             #Update this move to be the 'previous' move (latest move in fact), so that
             #yellow shades can be shown on it.
             prevMove = [x,y,x2,y2]
@@ -1606,8 +1460,8 @@ while not gameEnded:
                 awaitAI = True
             #Move the piece to its new destination:
             dragPiece.setcoord((x2,y2))
-            #There may have been a capture, so the piece list should be regenerated.
-            #However, if animation is ocurring, the the captured piece should still remain visible.
+            # There may have been a capture, so the piece list should be regenerated.
+            # However, if animation is ocurring, the the captured piece should still remain visible.
             if not isTransition:
                 listofWhitePieces,listofBlackPieces = createPieces(board)
             else:
@@ -1616,9 +1470,7 @@ while not gameEnded:
                 destiny = coord2pixels((x2,y2))
                 movingPiece.setpos(origin)
                 step = (destiny[0]-origin[0],destiny[1]-origin[1])
-            
-            #Either way shades should be deleted now:
-            createShades([])
+            createShades([]) # Either way shades should be deleted now.
 
     if awaitAI and not isTransition:
         awaitAI = False
@@ -1631,11 +1483,7 @@ while not gameEnded:
                     args = (position,searchDepth,-1000000,1000000,colorsign,bestMoveReturn))
         move_thread.start()
         isAIThink = True
-
-
-
-    #If an animation is supposed to happen, make it happen:
-    if isTransition:
+    if isTransition: #If an animation is supposed to happen, make it happen.
         p,q = movingPiece.getpos()
         dx2,dy2 = destiny
         n= 30.0
@@ -1647,7 +1495,6 @@ while not gameEnded:
             listofWhitePieces,listofBlackPieces = createPieces(board)
             #No more transitioning:
             isTransition = False
-
             createShades([])
         else:
             #Move it closer to its destination.
@@ -1658,7 +1505,7 @@ while not gameEnded:
         dragPiece.setpos((int(m-squareSize/2), int(k-squareSize/2)))
     #If the AI is thinking, make sure to check if it isn't done thinking yet.
     #Also, if a piece is currently being animated don't ask the AI if it's
-    #done thining, in case it replied in the affirmative and starts moving 
+    #done thining, in case it replied in the affirmative and starts moving
     #at the same time as your piece is moving:
     if isAIThink and not isTransition:
         if not move_thread.isAlive():
@@ -1671,10 +1518,9 @@ while not gameEnded:
             [x,y],[x2,y2] = bestMoveReturn
             # play a sound
             if isOccupied(board, x2, y2):
-                pygame.mixer.music.load(soundPath + '/capture.mp3')
+                pygame.mixer.Sound.play(snd_cap)
             else:
-                pygame.mixer.music.load(soundPath + '/move.mp3')
-            pygame.mixer.music.play(0)
+                pygame.mixer.Sound.play(snd_mov)
             #Do everything just as if the user made a move by click-click movement:
             makemove(position,x,y,x2,y2)
 
@@ -1699,18 +1545,12 @@ while not gameEnded:
             movingPiece.setpos(origin)
             step = (destiny[0]-origin[0],destiny[1]-origin[1])
 
-    #Update positions of all images:
-    drawBoard()
-    #Update the display:
-    pygame.display.update()
+    drawBoard() # Update positions of all images.
+    pygame.display.update() # Update the display.
+    clock.tick(60) # Run at specific fps.
 
-    #Run at specific fps:
-    clock.tick(60)
-
-#Out of loop. Quit pygame:
-pygame.quit()
-#In case recording mode was on, save the openings dictionary to a file:
-if isRecord:
+pygame.quit() # Out of loop. Quit pygame.
+if isRecord: # In case recording mode was on, save the openings dictionary to a file.
     file_handle = open('openingTable.txt','wb')
     pickle.dump(openings,file_handle)
     file_handle.close()
