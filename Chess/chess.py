@@ -138,7 +138,8 @@ import os #To allow path joining with cross-platform support
 boardSize           = 680 # height and width in px
 
 appPath             = os.path.dirname(__file__)
-mediapath           = appPath + '/Media'
+mediaPath           = appPath + '/Media'
+soundPath           = appPath + "/Media/Sounds"
 piecesImagePath     = appPath + '/Media/Pieces'
 shadesImagePath     = appPath + '/Media/Shades'
 offset              = int(boardSize/34) # boarderwidth in px
@@ -149,7 +150,7 @@ awaitAI             = False # start AI after transition has ended
 
 
 # Load the images:
-background              = pygame.image.load(os.path.join(mediapath, 'board.png')).convert()
+background              = pygame.image.load(os.path.join(mediaPath, 'board.png')).convert()
 circle_image_green      = pygame.image.load(os.path.join(shadesImagePath, 'green_circle_small.png')).convert_alpha()
 circle_image_capture    = pygame.image.load(os.path.join(shadesImagePath, 'green_circle_neg.png')).convert_alpha()
 circle_image_red        = pygame.image.load(os.path.join(shadesImagePath, 'red_circle_big.png')).convert_alpha()
@@ -1593,7 +1594,13 @@ while not gameEnded:
                 #Make sure it isn't already in there:
                 if [(x,y),(x2,y2)] not in openings[key]: 
                     openings[key].append([(x,y),(x2,y2)])
-                
+            
+            # play a sound
+            if isOccupied(board, x2, y2):
+                pygame.mixer.music.load(soundPath + '/capture.mp3')
+            else:
+                pygame.mixer.music.load(soundPath + '/move.mp3')
+            pygame.mixer.music.play(0)
             #Make the move:
             makemove(position,x,y,x2,y2)
             #Update this move to be the 'previous' move (latest move in fact), so that
@@ -1663,6 +1670,7 @@ while not gameEnded:
             listofWhitePieces,listofBlackPieces = createPieces(board)
             #No more transitioning:
             isTransition = False
+
             createShades([])
         else:
             #Move it closer to its destination.
@@ -1684,8 +1692,15 @@ while not gameEnded:
             createShades([])
             #Get the move proposed:
             [x,y],[x2,y2] = bestMoveReturn
+            # play a sound
+            if isOccupied(board, x2, y2):
+                pygame.mixer.music.load(soundPath + '/capture.mp3')
+            else:
+                pygame.mixer.music.load(soundPath + '/move.mp3')
+            pygame.mixer.music.play(0)
             #Do everything just as if the user made a move by click-click movement:
             makemove(position,x,y,x2,y2)
+
             prevMove = [x,y,x2,y2]
             player = position.getplayer()
             HMC = position.getHMC()
