@@ -38,6 +38,7 @@
 # 28/11/2019 05:30 attribute read is no longer 'r+' is now 'rb" (and 'wb' for write)
 # 28/11/2019 05:50 put all shades in an folder
 # 28/11/2019 05:50 openingTable.txt is damaged, create new file (make a better one later)
+# 28/11/2019 12:00 keep all globals on one place
 
 # Ensure that Pygame is installed
 
@@ -125,29 +126,50 @@
 
 #Import dependencies:
 import pygame #Game library
-from pygame.locals import * #For useful variables
+from   pygame.locals import * #For useful variables
 import copy #Library used to make exact copies of lists.
 import pickle #Library used to store dictionaries in a text file and read them from text files.
 import random #Used for making random selections
-from collections import defaultdict #Used for giving dictionary values default data types.
-from collections import Counter #For counting elements in a list effieciently.
+from   collections import defaultdict #Used for giving dictionary values default data types.
+from   collections import Counter #For counting elements in a list effieciently.
 import threading #To allow for AI to think simultaneously while the GUI is coloring the board.
 import os #To allow path joining with cross-platform support
 
 #global var
-boardSize           = 680 # height and width in px
-
-appPath             = os.path.dirname(__file__)
-mediaPath           = appPath + '/Media'
-soundPath           = appPath + "/Media/Sounds"
-piecesImagePath     = appPath + '/Media/Pieces'
-shadesImagePath     = appPath + '/Media/Shades'
-offset              = int(boardSize/34) # boarderwidth in px
-squareSize          = int((boardSize - 2*offset)/8) # the size of the individual squares
-screen              = pygame.display.set_mode((boardSize, boardSize)) # Load the screen x, y with size
-searchDepth         = 3
-awaitAI             = False # start AI after transition has ended
-
+boardSize         = 680 # height and width in px
+searchDepth       = 3   # or 4
+player            = -1               # will  be set later; 0 for white, 1 for black
+AIPlayer          = -1               # will  be set later; 1 means: AI playes black
+winner            = ""               # will be 'w' or 'b'
+prevMove          = [-1, -1, -1, -1] # stores the last move, to allow drawBoard() to create Shades on the squares.
+appPath           = os.path.dirname(__file__)
+mediaPath         = appPath + '/Media'
+soundPath         = appPath + "/Media/Sounds"
+piecesImagePath   = appPath + '/Media/Pieces'
+shadesImagePath   = appPath + '/Media/Shades'
+offset            = int(boardSize/34) # boarderwidth in px
+squareSize        = int((boardSize - 2*offset)/8) # the size of the individual squares
+screen            = pygame.display.set_mode((boardSize, boardSize)) # Load the screen x, y with size
+gameEnded         = False # keep false until the user wants to quit.
+isRecord          = False  # Set this to True if you want to record moves to the Opening Book.
+awaitAI           = False # let start the AI after transitioning has ended
+isClicked         = False  # is True after mouse leftclick
+isTransition      = False  # a piece is moving
+isFlip            = -1  # initial value, flips the board if True
+isDown            = False  # a variable that shows if the mouse is being held down
+isMenu            = True # for showing the menu and keeping track of user choices.
+listofWhitePieces = []
+listofBlackPieces = []
+listofShades      = []
+openings          = defaultdict(list) # Initialize the opening book dictionary,and set its values by default.
+isAI              = -1
+isAIThink         = False  # Stores whether or not the AI is calculating the best move to be played.
+chessEnded        = False  # Will become True once the chess game ends by checkmate, stalemate, etc.
+ax, ay            = 0, 0   # For animating AI thinking graphics
+numm              = 0      # AI related
+colorsign         = 0      # AI related
+bestMoveReturn    = []     # AI related
+searched          = {} #Global variable that allows negamax to keep track of nodes that have already been evaluated.
 
 # Load the images:
 background              = pygame.image.load(os.path.join(mediaPath, 'board.png')).convert()
@@ -292,7 +314,7 @@ class Piece:
             left_y = 0
         else:
             left_y = squareSize
-        
+
         self.pieceInfo = pieceInfo
         #subsection defines the part of the sprite image that represents our
         #piece:
@@ -1257,12 +1279,12 @@ def isolatedPawns(board,color):
 #Initialize the board:
 board = [ ['Rb', 'Nb', 'Bb', 'Qb', 'Kb', 'Bb', 'Nb', 'Rb'], #8
           ['Pb', 'Pb', 'Pb', 'Pb', 'Pb', 'Pb', 'Pb', 'Pb'], #7
-          [  0,    0,    0,    0,    0,    0,    0,    0],  #6
-          [  0,    0,    0,    0,    0,    0,    0,    0],  #5
-          [  0,    0,    0,    0,    0,    0,    0,    0],  #4
-          [  0,    0,    0,    0,    0,    0,    0,    0],  #3
-          ['Pw', 'Pw', 'Pw',  'Pw', 'Pw', 'Pw', 'Pw', 'Pw'], #2
-          ['Rw', 'Nw', 'Bw',  'Qw', 'Kw', 'Bw', 'Nw', 'Rw'] ]#1
+          [  0,    0,    0,    0,    0,    0,    0,    0 ], #6
+          [  0,    0,    0,    0,    0,    0,    0,    0 ], #5
+          [  0,    0,    0,    0,    0,    0,    0,    0 ], #4
+          [  0,    0,    0,    0,    0,    0,    0,    0 ], #3
+          ['Pw', 'Pw', 'Pw', 'Pw', 'Pw', 'Pw', 'Pw', 'Pw'], #2
+          ['Rw', 'Nw', 'Bw', 'Qw', 'Kw', 'Bw', 'Nw', 'Rw'] ]#1
           # a      b     c     d     e     f     g     h
 
 #In chess some data must be stored that is not apparent in the board:
@@ -1340,40 +1362,23 @@ king_endgame_table = [-50,-40,-30,-20,-20,-30,-40,-50,
 pygame.init()
 #Load the screen with any arbitrary size for now:
 
-
-
-
-
-
-
-
-
-
-
-
 pygame.display.set_caption('Shallow Green')
 screen.blit(background,(0,0))
 
 #Generate a list of pieces that should be drawn on the board:
 listofWhitePieces,listofBlackPieces = createPieces(board)
 #(the list contains references to objects of the class Piece)
-#Initialize a list of shades:
-listofShades = []
+
 
 clock = pygame.time.Clock() #Helps controlling fps of the game.
-isDown = False #Variable that shows if the mouse is being held down
-               #onto a piece 
-isClicked = False #To keep track of whether a piece was clicked in order
-#to indicate intention to move by the user.
-isTransition = False #Keeps track of whether or not a piece is being animated.
+
+
+
 isDraw = False #Will store True if the game ended with a draw
-chessEnded = False #Will become True once the chess game ends by checkmate, stalemate, etc.
-isRecord = False #Set this to True if you want to record moves to the Opening Book. Do not
-#set this to True unless you're 100% sure of what you're doing. The program will never modify
-#this value.
-isAIThink = False #Stores whether or not the AI is calculating the best move to be played.
-# Initialize the opening book dictionary, and set its values to be lists by default:
-openings = defaultdict(list)
+
+
+
+
 #If openingTable.txt exists, read from it and load the opening moves to the local dictionary.
 #If it doesn't, create a new one to write to if Recording is enabled:
 try:
@@ -1382,21 +1387,11 @@ try:
 except:
     print("OpeningTable not found or not readable")
 
-searched = {} #Global variable that allows negamax to keep track of nodes that have
-#already been evaluated.
-prevMove = [-1,-1,-1,-1] #Also a global varible that stores the last move played, to 
-#allow drawBoard() to create Shades on the squares.
-#Initialize some more values:
-#For animating AI thinking graphics:
-ax,ay=0,0
-numm = 0
-#For showing the menu and keeping track of user choices:
-isMenu = True
-isAI = -1
-isFlip = -1
-AIPlayer = -1
-#Finally, a variable to keep false until the user wants to quit:
-gameEnded = False
+
+
+
+
+
 #########################INFINITE LOOP#####################################
 #The program remains in this loop until the user quits the application
 while not gameEnded:
