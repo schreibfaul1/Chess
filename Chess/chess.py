@@ -151,25 +151,25 @@ offset            = int(boardSize/34) # boarderwidth in px
 squareSize        = int((boardSize - 2*offset)/8) # the size of the individual squares
 screen            = pygame.display.set_mode((boardSize, boardSize)) # Load the screen x, y with size
 gameEnded         = False # keep false until the user wants to quit.
-isRecord          = False  # Set this to True if you want to record moves to the Opening Book.
+isRecord          = False # Set this to True if you want to record moves to the Opening Book.
 awaitAI           = False # let start the AI after transitioning has ended
-isClicked         = False  # is True after mouse leftclick
-isTransition      = False  # a piece is moving
-isFlip            = -1  # initial value, flips the board if True
-isDown            = False  # a variable that shows if the mouse is being held down
-isMenu            = True # for showing the menu and keeping track of user choices.
+isClicked         = False # is True after mouse leftclick
+isTransition      = False # a piece is moving
+isFlip            = -1    # initial value, flips the board if True
+isDown            = False # a variable that shows if the mouse is being held down
+isMenu            = True  # for showing the menu and keeping track of user choices.
 listofWhitePieces = []
 listofBlackPieces = []
 listofShades      = []
 openings          = defaultdict(list) # Initialize the opening book dictionary,and set its values by default.
 isAI              = -1
-isAIThink         = False  # Stores whether or not the AI is calculating the best move to be played.
-chessEnded        = False  # Will become True once the chess game ends by checkmate, stalemate, etc.
-ax, ay            = 0, 0   # For animating AI thinking graphics
-numm              = 0      # AI related
-colorsign         = 0      # AI related
-bestMoveReturn    = []     # AI related
-searched          = {} #Global variable that allows negamax to keep track of nodes that have already been evaluated.
+isAIThink         = False # Stores whether or not the AI is calculating the best move to be played.
+chessEnded        = False # Will become True once the chess game ends by checkmate, stalemate, etc.
+ax, ay            = 0, 0  # For animating AI thinking graphics
+numm              = 0     # AI related
+colorsign         = 0     # AI related
+bestMoveReturn    = []    # AI related
+searched          = {} # global variable that allows negamax to keep track of nodes that have already been evaluated.
 
 # Load the images:
 background              = pygame.image.load(os.path.join(mediaPath, 'board.png')).convert()
@@ -911,25 +911,21 @@ def pos2key(position):
            tuplerights)
     #Return the key:
     return key
-
-##############################////////GUI FUNCTIONS\\\\\\\\\\\\\#############################
+#-----------------------------------------------------------------------------------------------------------------------
+#                                 G U I    F U N C T I O N S
+#-----------------------------------------------------------------------------------------------------------------------
 def coord2pixels(chess_coord):
     x,y = chess_coord
-    #There are two sets of coordinates that this function could choose to return.
-    #One is the coordinates that would be usually returned, the other is one that
-    #would be returned if the board were to be flipped.
-    #Note that square width and height variables are defined in the main function and 
-    #so are accessible here as global variables.
+    # There are two sets of coordinates that this function could choose to return.One is the coordinates that would
+    # be usually returned, the other is one that would be returned if the board were to be flipped.
+    # Note that squareSize are defined in the main function and so are accessible here as global variables.
     if isAI:
-        if AIPlayer==0:
-            #This means you're playing against the AI and are playing as black:
+        if AIPlayer==0: # this means you're playing against the AI and are playing as black.
             return ((7-x)*squareSize + offset, (7-y)*squareSize + offset)
         else:
             return (x*squareSize + offset, y*squareSize + offset)
-    #Being here means two player game is being played.
-    #If the flipping mode is enabled, and the player to play is black,
-    #the board should flip, but not until the transition animation for 
-    #white movement is complete:
+    # Being here means two player game is being played. If the flipping mode is enabled, and the player to play is
+    # black, the board should flip, but not until the transition animation for white movement is complete.
     if not isFlip or player == 0 ^ isTransition:
         return (x*squareSize + offset, y*squareSize + offset)
     else:
@@ -950,82 +946,61 @@ def pixels2coord(pixel_coord):
         return (7-x,7-y)
 #-----------------------------------------------------------------------------------------------------------------------
 def getPiece(chess_coord):
-    for piece in listofWhitePieces+listofBlackPieces:
-        #piece.getInfo()[0] represents the chess coordinate occupied
-        #by piece.
-        if piece.getInfo()[0] == chess_coord:
+    for piece in listofWhitePieces + listofBlackPieces:
+        if piece.getInfo()[0] == chess_coord: # piece.getInfo()[0] represents the chess coordinate occupied by piece.
             return piece
+#-----------------------------------------------------------------------------------------------------------------------
 def createPieces(board):
-    #Initialize containers:
-    listofWhitePieces = []
+    listofWhitePieces = [] # Initialize containers.
     listofBlackPieces = []
-    #Loop through all squares:
-    for i in range(8):
+    for i in range(8): # Loop through all squares.
         for k in range(8):
-            if board[i][k]!=0:
-                #The square is not empty, create a piece object:
+            if board[i][k]!=0: # The square is not empty, create a piece object.
                 p = Piece(board[i][k],(k,i))
-                #Append the reference to the object to the appropriate
-                #list:
-                if board[i][k][1]=='w':
+                if board[i][k][1]=='w': # Append the reference to the object to the appropriate list.
                     listofWhitePieces.append(p)
                 else:
                     listofBlackPieces.append(p)
-    #Return both:
-    return [listofWhitePieces,listofBlackPieces]
+    return [listofWhitePieces,listofBlackPieces] # Return both.
+#-----------------------------------------------------------------------------------------------------------------------
 def createShades(listofTuples):
-    global listofShades
-    #Empty the list
-    listofShades = []
+    listofShades = [] # Empty the global var list
     if isTransition:
-        #Nothing should be shaded when a piece is being animated:
-        return
-    if isDraw:
-        #The game ended with a draw. Make yellow circle shades for
-        #both the kings to show this is the case:
+        return # Nothing should be shaded when a piece is being animated.
+    if isDraw: # The game ended with a draw. Make yellow circle shades for both the kings to show this is the case.
         coord = lookfor(board,'Kw')[0]
         shade = Shades(circle_image_yellow,coord)
         listofShades.append(shade)
         coord = lookfor(board,'Kb')[0]
         shade = Shades(circle_image_yellow,coord)
         listofShades.append(shade)
-        #There is no need to go further:
-        return
-    if chessEnded:
-        #The game has ended, with a checkmate because it cannot be a 
-        #draw if the code reached here.
-        #Give the winning king a green circle shade:
-        coord = lookfor(board,'K'+winner)[0]
+        return # There is no need to go further.
+    if chessEnded: # The game has ended, with a checkmate because it cannot be a draw if the code reached here.
+        coord = lookfor(board,'K'+winner)[0] # Give the winning king a green circle shade.
         shade = Shades(circle_image_green_big,coord)
         listofShades.append(shade)
-    #If either king is under attack, give them a red circle:
     if isCheck(position,'white'):
-        coord = lookfor(board,'Kw')[0]
+        coord = lookfor(board,'Kw')[0] # If either king is under attack, give them a red circle.
         shade = Shades(circle_image_red,coord)
         listofShades.append(shade)
     if isCheck(position,'black'):
         coord = lookfor(board,'Kb')[0]
         shade = Shades(circle_image_red,coord)
         listofShades.append(shade)
-    #Go through all the target squares inputted:
     for pos in listofTuples:
-        #If the target square is occupied, it can be captured.
-        #For a capturable square, there is a different shade.
-        #Create the appropriate shade for each target square:
+        # Go through all the target squares inputted. If the target square is occupied, it can be captured.
+        # For a capturable square, there is a different shade.Create the appropriate shade for each target square.
         if isOccupied(board,pos[0],pos[1]):
             img = circle_image_capture
         else:
             img = circle_image_green
         shade = Shades(img,pos)
-        #Append:
-        listofShades.append(shade)
+        listofShades.append(shade) # append
+#-----------------------------------------------------------------------------------------------------------------------
 def drawBoard():
-    #Blit the background:
-    screen.blit(background,(0,0)) # Blit the background
-    #Choose the order in which to blit the pieces.
-    #If black is about to play for example, white pieces
-    #should be blitted first, so that when black is capturing,
-    #the piece appears above:
+    screen.blit(background,(0,0)) # Blit the background.
+    # Choose the order in which to blit the pieces. If black is about to play for example, white pieces
+    # should be blitted first, so that when black is capturing, the piece appears above:
     if player==1:
         order = [listofWhitePieces,listofBlackPieces]
     else:
@@ -1034,15 +1009,15 @@ def drawBoard():
         #If a piece is being animated, the player info is changed despite
         #white still capturing over black, for example. Reverse the order:
         order = list(reversed(order))
-    #The shades which appear during the following three conditions need to be
-    #blitted first to appear under the pieces:
+    # The shades which appear during the following three conditions need to be
+    # blitted first to appear under the pieces:
     if isDraw or chessEnded or isAIThink:
         #Shades
         for shade in listofShades:
             img,chess_coord = shade.getInfo()
             pixel_coord = coord2pixels(chess_coord)
             screen.blit(img,pixel_coord)
-    #Make shades to show what the previous move played was:
+    # Make shades to show what the previous move played was:
     if prevMove[0]!=-1 and not isTransition:
         x,y,x2,y2 = prevMove
         screen.blit(yellowbox_image,coord2pixels((x,y)))
@@ -1076,10 +1051,10 @@ def drawBoard():
             screen.blit(pieceImage, pixel_coord)
         else:
             screen.blit(pieceImage, pos)
-
-###########################////////AI RELATED FUNCTIONS\\\\\\\\\\############################
-
-def negamax(position,depth,alpha,beta,colorsign,bestMoveReturn,root=True):
+#-----------------------------------------------------------------------------------------------------------------------
+#                    A I     R E L A T E D     F U N C T I O N S
+#-----------------------------------------------------------------------------------------------------------------------
+def negamax(position, depth, alpha, beta, colorsign, bestMoveReturn, root=True):
     #First check if the position is already stored in the opening database dictionary:
     if root:
         #Generate key from current position:
@@ -1294,68 +1269,75 @@ castling_rights = [[True, True],[True, True]]
 #either side of the king. (Kingside, Queenside)
 En_Passant_Target = -1 #This variable will store a coordinate if there is a square that can be
                        #en passant captured on. Otherwise it stores -1, indicating lack of en passant
-                       #targets. 
+                       #targets.
 half_move_clock = 0 #This variable stores the number of reversible moves that have been played so far.
 #Generate an instance of GamePosition class to store the above data:
 position = GamePosition(board,player,castling_rights,En_Passant_Target
                         ,half_move_clock)
 #Store the piece square tables here so they can be accessed globally by pieceSquareTable() function:
-pawn_table = [  0,  0,  0,  0,  0,  0,  0,  0,
-50, 50, 50, 50, 50, 50, 50, 50,
-10, 10, 20, 30, 30, 20, 10, 10,
- 5,  5, 10, 25, 25, 10,  5,  5,
- 0,  0,  0, 20, 20,  0,  0,  0,
- 5, -5,-10,  0,  0,-10, -5,  5,
- 5, 10, 10,-20,-20, 10, 10,  5,
- 0,  0,  0,  0,  0,  0,  0,  0]
-knight_table = [-50,-40,-30,-30,-30,-30,-40,-50,
--40,-20,  0,  0,  0,  0,-20,-40,
--30,  0, 10, 15, 15, 10,  0,-30,
--30,  5, 15, 20, 20, 15,  5,-30,
--30,  0, 15, 20, 20, 15,  0,-30,
--30,  5, 10, 15, 15, 10,  5,-30,
--40,-20,  0,  5,  5,  0,-20,-40,
--50,-90,-30,-30,-30,-30,-90,-50]
-bishop_table = [-20,-10,-10,-10,-10,-10,-10,-20,
--10,  0,  0,  0,  0,  0,  0,-10,
--10,  0,  5, 10, 10,  5,  0,-10,
--10,  5,  5, 10, 10,  5,  5,-10,
--10,  0, 10, 10, 10, 10,  0,-10,
--10, 10, 10, 10, 10, 10, 10,-10,
--10,  5,  0,  0,  0,  0,  5,-10,
--20,-10,-90,-10,-10,-90,-10,-20]
-rook_table = [0,  0,  0,  0,  0,  0,  0,  0,
-  5, 10, 10, 10, 10, 10, 10,  5,
- -5,  0,  0,  0,  0,  0,  0, -5,
- -5,  0,  0,  0,  0,  0,  0, -5,
- -5,  0,  0,  0,  0,  0,  0, -5,
- -5,  0,  0,  0,  0,  0,  0, -5,
- -5,  0,  0,  0,  0,  0,  0, -5,
-  0,  0,  0,  5,  5,  0,  0,  0]
-queen_table = [-20,-10,-10, -5, -5,-10,-10,-20,
--10,  0,  0,  0,  0,  0,  0,-10,
--10,  0,  5,  5,  5,  5,  0,-10,
- -5,  0,  5,  5,  5,  5,  0, -5,
-  0,  0,  5,  5,  5,  5,  0, -5,
--10,  5,  5,  5,  5,  5,  0,-10,
--10,  0,  5,  0,  0,  0,  0,-10,
--20,-10,-10, 70, -5,-10,-10,-20]
-king_table = [-30,-40,-40,-50,-50,-40,-40,-30,
--30,-40,-40,-50,-50,-40,-40,-30,
--30,-40,-40,-50,-50,-40,-40,-30,
--30,-40,-40,-50,-50,-40,-40,-30,
--20,-30,-30,-40,-40,-30,-30,-20,
--10,-20,-20,-20,-20,-20,-20,-10,
- 20, 20,  0,  0,  0,  0, 20, 20,
- 20, 30, 10,  0,  0, 10, 30, 20]
+
+pawn_table =          [ 0,  0,  0,  0,  0,  0,  0,  0,
+                       50, 50, 50, 50, 50, 50, 50, 50,
+                       10, 10, 20, 30, 30, 20, 10, 10,
+                        5,  5, 10, 25, 25, 10,  5,  5,
+                        0,  0,  0, 20, 20,  0,  0,  0,
+                        5, -5,-10,  0,  0,-10, -5,  5,
+                        5, 10, 10,-20,-20, 10, 10,  5,
+                        0,  0,  0,  0,  0,  0,  0,  0]
+
+knight_table =       [-50,-40,-30,-30,-30,-30,-40,-50,
+                      -40,-20,  0,  0,  0,  0,-20,-40,
+                      -30,  0, 10, 15, 15, 10,  0,-30,
+                      -30,  5, 15, 20, 20, 15,  5,-30,
+                      -30,  0, 15, 20, 20, 15,  0,-30,
+                      -30,  5, 10, 15, 15, 10,  5,-30,
+                      -40,-20,  0,  5,  5,  0,-20,-40,
+                      -50,-90,-30,-30,-30,-30,-90,-50]
+
+bishop_table =       [-20,-10,-10,-10,-10,-10,-10,-20,
+                      -10,  0,  0,  0,  0,  0,  0,-10,
+                      -10,  0,  5, 10, 10,  5,  0,-10,
+                      -10,  5,  5, 10, 10,  5,  5,-10,
+                      -10,  0, 10, 10, 10, 10,  0,-10,
+                      -10, 10, 10, 10, 10, 10, 10,-10,
+                      -10,  5,  0,  0,  0,  0,  5,-10,
+                      -20,-10,-90,-10,-10,-90,-10,-20]
+
+rook_table =          [ 0,  0,  0,  0,  0,  0,  0,  0,
+                        5, 10, 10, 10, 10, 10, 10,  5,
+                       -5,  0,  0,  0,  0,  0,  0, -5,
+                       -5,  0,  0,  0,  0,  0,  0, -5,
+                       -5,  0,  0,  0,  0,  0,  0, -5,
+                       -5,  0,  0,  0,  0,  0,  0, -5,
+                       -5,  0,  0,  0,  0,  0,  0, -5,
+                        0,  0,  0,  5,  5,  0,  0,  0]
+
+queen_table =        [-20,-10,-10, -5, -5,-10,-10,-20,
+                      -10,  0,  0,  0,  0,  0,  0,-10,
+                      -10,  0,  5,  5,  5,  5,  0,-10,
+                       -5,  0,  5,  5,  5,  5,  0, -5,
+                        0,  0,  5,  5,  5,  5,  0, -5,
+                      -10,  5,  5,  5,  5,  5,  0,-10,
+                      -10,  0,  5,  0,  0,  0,  0,-10,
+                      -20,-10,-10, 70, -5,-10,-10,-20]
+
+king_table =         [-30,-40,-40,-50,-50,-40,-40,-30,
+                      -30,-40,-40,-50,-50,-40,-40,-30,
+                      -30,-40,-40,-50,-50,-40,-40,-30,
+                      -30,-40,-40,-50,-50,-40,-40,-30,
+                      -20,-30,-30,-40,-40,-30,-30,-20,
+                      -10,-20,-20,-20,-20,-20,-20,-10,
+                       20, 20,  0,  0,  0,  0, 20, 20,
+                       20, 30, 10,  0,  0, 10, 30, 20]
+
 king_endgame_table = [-50,-40,-30,-20,-20,-30,-40,-50,
--30,-20,-10,  0,  0,-10,-20,-30,
--30,-10, 20, 30, 30, 20,-10,-30,
--30,-10, 30, 40, 40, 30,-10,-30,
--30,-10, 30, 40, 40, 30,-10,-30,
--30,-10, 20, 30, 30, 20,-10,-30,
--30,-30,  0,  0,  0,  0,-30,-30,
--50,-30,-30,-30,-30,-30,-30,-50]
+                      -30,-20,-10,  0,  0,-10,-20,-30,
+                      -30,-10, 20, 30, 30, 20,-10,-30,
+                      -30,-10, 30, 40, 40, 30,-10,-30,
+                      -30,-10, 30, 40, 40, 30,-10,-30,
+                      -30,-10, 20, 30, 30, 20,-10,-30,
+                      -30,-30,  0,  0,  0,  0,-30,-30,
+                      -50,-30,-30,-30,-30,-30,-30,-50]
 
 #Make the GUI:
 #Start pygame
