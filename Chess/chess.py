@@ -144,7 +144,7 @@ from stockfish import Engine
 #global var
 boardSize         = 680 # height and width in px
 searchDepth       = 3   # or 4
-player            = -1               # will  be set later; 0 for white, 1 for black
+player            = 0   #This is the player that makes the next move. 0 is white, 1 is black
 AIPlayer          = -1               # will  be set later; 1 means: AI playes black
 winner            = ""               # will be 'w' or 'b'
 prevMove          = [-1, -1, -1, -1] # stores the last move, to allow drawBoard() to create Shades on the squares.
@@ -162,6 +162,7 @@ awaitAI           = False # let start the AI after transitioning has ended
 isClicked         = False # is True after mouse leftclick
 isTransition      = False # a piece is moving
 isFlip            = -1    # initial value, flips the board if True
+isDraw            = False #Will store True if the game ended with a draw
 isDown            = False # a variable that shows if the mouse is being held down
 isMenu            = True  # for showing the menu and keeping track of user choices.
 listofWhitePieces = []
@@ -175,8 +176,24 @@ ax, ay            = 0, 0  # For animating AI thinking graphics
 numm              = 0     # AI related
 colorsign         = 0     # AI related
 bestMoveReturn    = []    # AI related
-searched          = {} # global variable that allows negamax to keep track of nodes that have already been evaluated.
-bm                = None # global, stores Stockfish's best move
+searched          = {}    # global variable that allows negamax to keep track of nodes that have already been evaluated.
+bm                = None  # global, stores Stockfish's best move
+En_Passant_Target = -1    # stores a coordinate if there is a square that can be en passant captured on.
+castling_rights   = [[True, True],[True, True]] # [wQueenside, wKingside],[bQueenside, bKingside]
+clock             = pygame.time.Clock() #Helps controlling fps of the game.
+half_move_clock   = 0 # This variable stores the number of reversible moves that have been played so far.
+FMN               = 1 # FullMoveNumber, begins with 1, ever
+
+                      # board in basic position
+board             = [ ['Rb', 'Nb', 'Bb', 'Qb', 'Kb', 'Bb', 'Nb', 'Rb'], #8
+                      ['Pb', 'Pb', 'Pb', 'Pb', 'Pb', 'Pb', 'Pb', 'Pb'], #7
+                      [  0,    0,    0,    0,    0,    0,    0,    0 ], #6
+                      [  0,    0,    0,    0,    0,    0,    0,    0 ], #5
+                      [  0,    0,    0,    0,    0,    0,    0,    0 ], #4
+                      [  0,    0,    0,    0,    0,    0,    0,    0 ], #3
+                      ['Pw', 'Pw', 'Pw', 'Pw', 'Pw', 'Pw', 'Pw', 'Pw'], #2
+                      ['Rw', 'Nw', 'Bw', 'Qw', 'Kw', 'Bw', 'Nw', 'Rw'] ]#1
+                      # a      b     c     d     e     f     g     h
 
 # Load the images:
 background              = pygame.image.load(os.path.join(mediaPath, 'board.png')).convert()
@@ -1269,32 +1286,9 @@ def isolatedPawns(board,color):
 #-----------------------------------------------------------------------------------------------------------------------
 
 #########MAIN FUNCTION####################################################
-#Initialize the board:
-board = [ ['Rb', 'Nb', 'Bb', 'Qb', 'Kb', 'Bb', 'Nb', 'Rb'], #8
-          ['Pb', 'Pb', 'Pb', 'Pb', 'Pb', 'Pb', 'Pb', 'Pb'], #7
-          [  0,    0,    0,    0,    0,    0,    0,    0 ], #6
-          [  0,    0,    0,    0,    0,    0,    0,    0 ], #5
-          [  0,    0,    0,    0,    0,    0,    0,    0 ], #4
-          [  0,    0,    0,    0,    0,    0,    0,    0 ], #3
-          ['Pw', 'Pw', 'Pw', 'Pw', 'Pw', 'Pw', 'Pw', 'Pw'], #2
-          ['Rw', 'Nw', 'Bw', 'Qw', 'Kw', 'Bw', 'Nw', 'Rw'] ]#1
-          # a      b     c     d     e     f     g     h
 
-#In chess some data must be stored that is not apparent in the board:
-player = 0 #This is the player that makes the next move. 0 is white, 1 is black
-castling_rights = [[True, True],[True, True]]
-#The above stores whether or not each of the players are permitted to castle on
-#either side of the king. (Kingside, Queenside)
-En_Passant_Target = -1 #This variable will store a coordinate if there is a square that can be
-                       #en passant captured on. Otherwise it stores -1, indicating lack of en passant
-                       #targets.
-half_move_clock = 0 #This variable stores the number of reversible moves that have been played so far.
-FMN =1
-#Generate an instance of GamePosition class to store the above data:
-position = GamePosition(board,player,castling_rights,En_Passant_Target
-                        ,half_move_clock, FMN)
-#Store the piece square tables here so they can be accessed globally by pieceSquareTable() function:
-stockfish         = Engine(depth=10)
+
+
 pawn_table =          [ 0,  0,  0,  0,  0,  0,  0,  0,
                        50, 50, 50, 50, 50, 50, 50, 50,
                        10, 10, 20, 30, 30, 20, 10, 10,
@@ -1415,10 +1409,11 @@ def showMenue():
     return True
 #-----------------------------------------------------------------------------------------------------------------------
 
-listofWhitePieces,listofBlackPieces = createPieces(board) # A list of pieces that should be drawn on the board.
-clock = pygame.time.Clock() #Helps controlling fps of the game.
-isDraw = False #Will store True if the game ended with a draw
+# objects
+position  = GamePosition(board,player,castling_rights,En_Passant_Target,half_move_clock, FMN)
+stockfish = Engine(depth=10)
 
+listofWhitePieces,listofBlackPieces = createPieces(board) # A list of pieces that should be drawn on the board.
 
 try: # If openingTable.txt exists, read from it and load the opening moves to the local dictionary.
     file_handle = open(os.path.dirname(__file__) + '/openingTable.txt','rb')
@@ -1513,8 +1508,6 @@ while not gameEnded: # The program remains in this loop until the user quits the
                             #Destory all shades
                             createShades([])
                             isTransition = True #Possibly if the move was valid.
-                            
-
             if not (x2,y2) in listofTuples:
                 #Move was invalid
                 isTransition = False
@@ -1535,8 +1528,10 @@ while not gameEnded: # The program remains in this loop until the user quits the
             position.increaseFMN()
             #Update this move to be the 'previous' move (latest move in fact), so that
             #yellow shades can be shown on it.
-            stockfish.setfenposition(getFEN(position.getboard()))
+            FEN = getFEN(position.getboard())
+            stockfish.setfenposition(FEN)
             bm = stockfish.bestmove()
+            print(FEN)
             print(bm['move'])
             #print(bm['ponder'])
             prevMove = [x,y,x2,y2]
@@ -1621,14 +1616,14 @@ while not gameEnded: # The program remains in this loop until the user quits the
             #[x,y],[x2,y2] = bestMoveReturn
             x,y,x2,y2 = convert_sf(bm['move'])
             #Do everything just as if the user made a move by click-click movement:
-            print("makemove" ,x,y,x2,y2)
             # play a sound
             if isOccupied(board, x2, y2):
                 pygame.mixer.Sound.play(snd_cap)
             else:
                 pygame.mixer.Sound.play(snd_mov)
+            print(getFEN(position.getboard()))
             makeMove(position, x, y, x2, y2)
-
+            position.increaseFMN()
             prevMove = [x,y,x2,y2]
             player = position.getplayer()
             HMC = position.getHMC()
