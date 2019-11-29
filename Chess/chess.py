@@ -39,7 +39,9 @@
 # 28/11/2019 05:50 put all shades in an folder
 # 28/11/2019 05:50 openingTable.txt is damaged, create new file (make a better one later)
 # 28/11/2019 12:00 keep all globals on one place
-# 28/11/2019 16:30 sounfdiles added
+# 28/11/2019 16:30 soundfiles added
+# 29/11/2019 16:00 implement Stockfish AI
+# 29/11/2019 18:27 board flips according to a player
 
 # Ensure that Pygame is installed
 
@@ -126,6 +128,8 @@
 # as (4,3) in this program.
 
 #Import dependencies:
+
+
 import pygame #Game library
 from   pygame.locals import * #For useful variables
 import copy #Library used to make exact copies of lists.
@@ -135,6 +139,7 @@ from   collections import defaultdict #Used for giving dictionary values default
 from   collections import Counter #For counting elements in a list effieciently.
 import threading #To allow for AI to think simultaneously while the GUI is coloring the board.
 import os #To allow path joining with cross-platform support
+from stockfish import Engine
 
 #global var
 boardSize         = 680 # height and width in px
@@ -171,10 +176,12 @@ numm              = 0     # AI related
 colorsign         = 0     # AI related
 bestMoveReturn    = []    # AI related
 searched          = {} # global variable that allows negamax to keep track of nodes that have already been evaluated.
+bm                = None # global, stores Stockfish's best move
 
 # Load the images:
 background              = pygame.image.load(os.path.join(mediaPath, 'board.png')).convert()
-icon                    = pygame.image.load(os.path.join(mediaPath, "chess.jpg"))
+background_flip         = pygame.image.load(os.path.join(mediaPath, 'board_flip.png')).convert()
+icon                    = pygame.image.load(os.path.join(mediaPath, "chess.jpg")) # shown in windows title and taskbar
 circle_image_green      = pygame.image.load(os.path.join(shadesImagePath, 'green_circle_small.png')).convert_alpha()
 circle_image_capture    = pygame.image.load(os.path.join(shadesImagePath, 'green_circle_neg.png')).convert_alpha()
 circle_image_red        = pygame.image.load(os.path.join(shadesImagePath, 'red_circle_big.png')).convert_alpha()
@@ -191,6 +198,7 @@ flipDisabled_pic        = pygame.image.load(os.path.join(shadesImagePath, 'flipD
 
 # Rescale the images so that each piece can fit in a square:
 background              = pygame.transform.scale(background, (boardSize, boardSize))
+background_flip         = pygame.transform.scale(background_flip, (boardSize, boardSize))
 circle_image_green      = pygame.transform.scale(circle_image_green, (squareSize, squareSize))
 circle_image_capture    = pygame.transform.scale(circle_image_capture, (squareSize, squareSize))
 circle_image_red        = pygame.transform.scale(circle_image_red, (squareSize, squareSize))
@@ -208,12 +216,16 @@ flipDisabled_pic        = pygame.transform.scale(flipDisabled_pic, (squareSize*4
 # Start pygame
 pygame.init()
 pygame.display.set_caption('Shallow Green')
-pygame.display.set_icon(icon) # shown in windows title and taskbar (but not in all Linux distributions)
+pygame.display.set_icon(icon)
 screen.blit(background,(0,0))
 
 # Load the sounds:
 snd_mov = pygame.mixer.Sound(soundPath + '/move.wav')
 snd_cap = pygame.mixer.Sound(soundPath + '/capture.wav')
+
+
+
+
 
 #-----------------------------------------------------------------------------------------------------------------------
 class GamePosition:
@@ -222,7 +234,7 @@ class GamePosition:
     the state of the game, such as the the player that has to play next, castling rights of the players, number
     of irreversible moves played so far, the positions of pieces on the board, etc.
     '''
-    def __init__(self,board,player,castling_rights,EnP_Target,HMC,history = {}):
+    def __init__(self,board,player,castling_rights,EnP_Target,HMC,FMN, history = {}):
         self.board = board #A 2D array containing information about piece postitions. Check main
         #function to see an example of such a representation.
         self.player = player #Stores the side to move. If white to play, equals 0. If black to
@@ -232,6 +244,8 @@ class GamePosition:
         self.EnP = EnP_Target #Stores the coordinates of a square that can be targeted by en passant capture.
         self.HMC = HMC #Half move clock. Stores the number of irreversible moves made so far, in order to help
         #detect draw by 50 moves without any capture or pawn movement.
+        # Fullmove number: The number of the full move. It starts at 1, and is incremented after Black's move.
+        self.FMN = FMN
         self.history = history #A dictionary that stores as key a position (hashed) and the value of each of
         #these keys represents the number of times each of these positions was repeated in order for this
         #position to be reached.
@@ -256,6 +270,14 @@ class GamePosition:
         return self.HMC
     def setHMC(self,HMC):
         self.HMC = HMC
+    def getFMN(self):
+        return int(self.FMN)
+    def setFMN(self, FMN):
+        self.FMN = int(FMN)
+    def increaseFMN(self):
+        self.FMN += 0.5
+        return int(self.FMN)
+
     def checkRepition(self): # Returns True if any of of the values in the history dictionary is greater than 3. This
         # would mean a position had been repeated at least thrice in order to reach the current position in this game.
         return any(value>=3 for value in self.history.values())
@@ -270,7 +292,8 @@ class GamePosition:
                              self.player,
                              copy.deepcopy(self.castling), #Independent copy
                              self.EnP,
-                             self.HMC)
+                             self.HMC,
+                             self.FMN)
         return clone
 #-----------------------------------------------------------------------------------------------------------------------
 class Shades:
@@ -333,6 +356,28 @@ class Piece:
         return self.pieceInfo+'('+str(chess_coord[0])+','+str(chess_coord[1])+')'
 #-----------------------------------------------------------------------------------------------------------------------
 
+
+#///////////////////////////////CHESS PROCESSING FUNCTIONS////////////////////
+#
+# drawText(board) - This function is not called in this program. It is useful for debugging
+# purposes, as it allows a board to be printed to the screen in a readable format.
+#
+# isOccupied(board,x,y) - Returns true if a given coordinate on the board is not empty, and
+# false otherwise.
+#
+# isOccupiedby(board,x,y,color) - Same as above, but only returns true if the square
+# specified by the coordinates is of the specifc color inputted.
+#
+# filterbyColor(board,listofTuples,color) - This function takes the board state, a list
+# of coordinates, and a color as input. It will return the same list, but without
+# coordinates that are out of bounds of the board and also without those occupied by the
+# pieces of the particular color passed to this function as an argument. In other words,
+# if 'white' is passed in, it will not return any white occupied square.
+#
+# lookfor(board,piece) - This functions takes the 2D array that represents a board and finds 
+# the indices of all the locations that is occupied by the specified piece. The list of 
+# indices is returned.
+#
 # isAttackedby(position,target_x,target_y,color) - This function checks if the square specified
 # by (target_x,target_y) coordinates is being attacked by any of a specific colored set of pieces.
 #
@@ -397,13 +442,8 @@ class Piece:
 # to make the game look nice.
 #
 
-
-#-----------------------------------------------------------------------------------------------------------------------
-#                       C H E S S   P R O C E S S I N G    F U N C T I O N S
-#-----------------------------------------------------------------------------------------------------------------------
+##################################/////CHESS PROCESSING FUNCTIONS\\\\########################
 def drawText(board):
-    # drawText(board) - This function is not called in this program. It is useful for debugging purposes,
-    # as it allows a board to be printed to the screen in a readable format.
     for i in range(len(board)):
         for k in range(len(board[i])):
             if board[i][k]==0:
@@ -413,39 +453,31 @@ def drawText(board):
         for k in range(len(board[i])):
             if board[i][k]=='Oo':
                 board[i][k] = 0
-#-----------------------------------------------------------------------------------------------------------------------
 def isOccupied(board,x,y):
-    # Returns true if a given coordinate on the board is not empty, and false otherwise.
     if board[y][x] == 0:
-        return False # The square has nothing on it.
+    #The square has nothing on it.
+        return False
     return True
-#-----------------------------------------------------------------------------------------------------------------------
 def isOccupiedby(board,x,y,color):
-    # Same as above, but only returns true if the square specified by the coordinates is of the specifc color inputted.
     if board[y][x]==0:
-        return False # the square has nothing on it.
+        #the square has nothing on it.
+        return False
     if board[y][x][1] == color[0]:
-        return True # The square has a piece of the color inputted.
-    return False # The square has a piece of the opposite color.
-#-----------------------------------------------------------------------------------------------------------------------
-def filterbyColor(board, listofTuples, color):
-    # This function takes the board state, a list of coordinates, and a color as input. It will return the same list,
-    # but without coordinates that are out of bounds of the board and also without those occupied by the pieces of the
-    # particular color passed to this function as an argument. In other words, if 'white' is passed in, it will not
-    # return any white occupied square.
+        #The square has a piece of the color inputted.
+        return True
+    #The square has a piece of the opposite color.
+    return False
+def filterbyColor(board,listofTuples,color):
     filtered_list = []
-
-    for pos in listofTuples: # Go through each coordinate:
+    #Go through each coordinate:
+    for pos in listofTuples:
         x = pos[0]
         y = pos[1]
         if x>=0 and x<=7 and y>=0 and y<=7 and not isOccupiedby(board,x,y,color):
             #coordinates are on-board and no same-color piece is on the square.
             filtered_list.append(pos)
     return filtered_list
-#-----------------------------------------------------------------------------------------------------------------------
-def lookfor(board, piece):
-    # lookfor(board,piece) - This functions takes the 2D array that represents a board and finds  the indices of all
-    # the locations that is occupied by the specified piece. The list of  indices is returned.
+def lookfor(board,piece):
     listofLocations = []
     for row in range(8):
         for col in range(8):
@@ -454,56 +486,61 @@ def lookfor(board, piece):
                 y = row
                 listofLocations.append((x,y))
     return listofLocations
-#-----------------------------------------------------------------------------------------------------------------------
-def isAttackedby(position, target_x, target_y, color):
-    # This function checks if the square specified by (target_x,target_y) coordinates is being attacked by any of a
-    # specific colored set of pieces.
-    board = position.getboard() # get board
-    color = color[0] # get b from black or w from white
-    listofAttackedSquares = [] # get all the squares that are attacked by the particular side
+def isAttackedby(position,target_x,target_y,color):
+    #Get board
+    board = position.getboard()
+    #Get b from black or w from white
+    color = color[0]
+    #Get all the squares that are attacked by the particular side:
+    listofAttackedSquares = []
     for x in range(8):
         for y in range(8):
             if board[y][x]!=0 and board[y][x][1]==color:
                 listofAttackedSquares.extend(
-                    findPossibleSquares(position,x,y,True)) #The true argument prevents infinite recursion.
-    # Check if the target square falls under the range of attack by the specified side, and return it.
-    return (target_x,target_y) in listofAttackedSquares
-#-----------------------------------------------------------------------------------------------------------------------
-def findPossibleSquares(position, x, y, AttackSearch=False):
-    # This function takes as its input the current state of the chessboard, and a particular x and y coordinate.
-    # It will return for the piece on that board a list of possible coordinates it could move to, including captures
-    # and excluding illegal moves (eg moves that leave a king under check). AtttackSearch is an argument used to ensure
-    # infinite recursions do not occur. Get individual component data from the position object:
+                    findPossibleSquares(position,x,y,True)) #The true argument
+                #prevents infinite recursion.
+    #Check if the target square falls under the range of attack by the specified
+    #side, and return it:
+    return (target_x,target_y) in listofAttackedSquares             
+def findPossibleSquares(position,x,y,AttackSearch=False):
+    #Get individual component data from the position object:
     board = position.getboard()
     player = position.getplayer()
     castling_rights = position.getCastleRights()
     EnP_Target = position.getEnP()
-    # In case something goes wrong:
-    if len(board[y][x])!=2: # unexpected, return empty list.
-        return []
-    piece = board[y][x][0] # pawn, rook, etc.
-    color = board[y][x][1] # w or b.
-    enemy_color = opp(color) # Have the complimentary color stored for convenience.
-    listofTuples = [] # Holds list of attacked squares.
-    if piece == 'P': # The piece is a pawn.
-        if color=='w': #T he piece is white
+    #In case something goes wrong:
+    if len(board[y][x])!=2: #Unexpected, return empty list.
+        return [] 
+    piece = board[y][x][0] #Pawn, rook, etc.
+    color = board[y][x][1] #w or b.
+    #Have the complimentary color stored for convenience:
+    enemy_color = opp(color)
+    listofTuples = [] #Holds list of attacked squares.
+
+    if piece == 'P': #The piece is a pawn.
+        if color=='w': #The piece is white
             if not isOccupied(board,x,y-1) and not AttackSearch:
-                listofTuples.append((x,y-1)) # The piece immediately above is not occupied, append it.
+                #The piece immediately above is not occupied, append it.
+                listofTuples.append((x,y-1))
+                
                 if y == 6 and not isOccupied(board,x,y-2):
-                    listofTuples.append((x,y-2)) # If pawn is at its initial position, it can move two squares
+                    #If pawn is at its initial position, it can move two squares.
+                    listofTuples.append((x,y-2))
+            
             if x!=0 and isOccupiedby(board,x-1,y-1,'black'):
-                # The piece diagonally up and left of this pawn is a black piece.
-                # Also, this is not an 'a' file pawn (left edge pawn)
+                #The piece diagonally up and left of this pawn is a black piece.
+                #Also, this is not an 'a' file pawn (left edge pawn)
                 listofTuples.append((x-1,y-1))
             if x!=7 and isOccupiedby(board,x+1,y-1,'black'):
-                # The piece diagonally up and right of this pawn is a black one.
-                # Also, this is not an 'h' file pawn.
+                #The piece diagonally up and right of this pawn is a black one.
+                #Also, this is not an 'h' file pawn.
                 listofTuples.append((x+1,y-1))
             if EnP_Target!=-1: #There is a possible en pasant target:
                 if EnP_Target == (x-1,y-1) or EnP_Target == (x+1,y-1):
-                    #We're at the correct location to potentially perform en passant:
+                    #We're at the correct location to potentially perform en
+                    #passant:
                     listofTuples.append(EnP_Target)
-
+            
         elif color=='b': #The piece is black, same as above but opposite side.
             if not isOccupied(board,x,y+1) and not AttackSearch:
                 listofTuples.append((x,y+1))
@@ -517,30 +554,37 @@ def findPossibleSquares(position, x, y, AttackSearch=False):
                 listofTuples.append(EnP_Target)
 
     elif piece == 'R': #The piece is a rook.
-        for i in [-1,1]: # Get all the horizontal squares:
-            # i is -1 then +1. This allows for searching right and left.
-            kx = x # This variable stores the x coordinate being looked at.
-            while True: # loop till break.
-                kx = kx + i # Searching left or right
-                if kx<=7 and kx>=0: # Making sure we're still in board.
-                    if not isOccupied(board,kx,y): # The square being looked at it empty. Our rook can move here.
+        #Get all the horizontal squares:
+        for i in [-1,1]:
+            #i is -1 then +1. This allows for searching right and left.
+            kx = x #This variable stores the x coordinate being looked at.
+            while True: #loop till break.
+                kx = kx + i #Searching left or right
+                if kx<=7 and kx>=0: #Making sure we're still in board.
+                    
+                    if not isOccupied(board,kx,y):
+                        #The square being looked at it empty. Our rook can move
+                        #here.
                         listofTuples.append((kx,y))
                     else:
-                        # The sqaure being looked at is occupied. If an enemy piece is occupying it, it can be captured
-                        # so its a valid move.
+                        #The sqaure being looked at is occupied. If an enemy
+                        #piece is occupying it, it can be captured so its a valid
+                        #move. 
                         if isOccupiedby(board,kx,y,enemy_color):
                             listofTuples.append((kx,y))
-                        # Regardless of the occupying piece color, the rook cannot jump over. No point continuing
-                        # search beyond in this direction.
+                        #Regardless of the occupying piece color, the rook cannot
+                        #jump over. No point continuing search beyond in this
+                        #direction:
                         break
-                else: # We have exceeded the limits of the board
+                        
+                else: #We have exceeded the limits of the board
                     break
-        # Now using the same method, get the vertical squares:
+        #Now using the same method, get the vertical squares:
         for i in [-1,1]:
             ky = y
             while True:
-                ky = ky + i
-                if ky<=7 and ky>=0:
+                ky = ky + i 
+                if ky<=7 and ky>=0: 
                     if not isOccupied(board,x,ky):
                         listofTuples.append((x,ky))
                     else:
@@ -549,11 +593,12 @@ def findPossibleSquares(position, x, y, AttackSearch=False):
                         break
                 else:
                     break
-
-    elif piece == 'N': # The piece is a knight.
-        # The knight can jump across a board. It can jump either two or one squares in the x or y direction,
-        # but must jump the complimentary amount in the other. In other words, if it jumps 2 sqaures in the
-        # x direction, it must jump one square in the y direction and vice versa.
+        
+    elif piece == 'N': #The piece is a knight.
+        #The knight can jump across a board. It can jump either two or one
+        #squares in the x or y direction, but must jump the complimentary amount
+        #in the other. In other words, if it jumps 2 sqaures in the x direction,
+        #it must jump one square in the y direction and vice versa.
         for dx in [-2,-1,1,2]:
             if abs(dx)==1:
                 sy = 2
@@ -561,86 +606,114 @@ def findPossibleSquares(position, x, y, AttackSearch=False):
                 sy = 1
             for dy in [-sy,+sy]:
                 listofTuples.append((x+dx,y+dy))
-        # Filter the list of tuples so that only valid squares exist.
+        #Filter the list of tuples so that only valid squares exist.
         listofTuples = filterbyColor(board,listofTuples,color)
     elif piece == 'B': # A bishop.
-        # A bishop moves diagonally. This means a change in x is accompanied by a change in y-coordiante when the piece
-        # moves. The changes are exactly the same in magnitude and direction.
-        for dx in [-1,1]:  #Allow two directions in x.
-            for dy in [-1,1]: # Similarly, up and down for y.
-                kx = x #These varibales store the coordinates of the square being observed.
+        #A bishop moves diagonally. This means a change in x is accompanied by a
+        #change in y-coordiante when the piece moves. The changes are exactly the
+        #same in magnitude and direction.
+        for dx in [-1,1]: #Allow two directions in x.
+            for dy in [-1,1]: #Similarly, up and down for y.
+                kx = x #These varibales store the coordinates of the square being
+                       #observed.
                 ky = y
-                while True: # loop till broken.
-                    kx = kx + dx # change x
-                    ky = ky + dy # change y
-                    if kx<=7 and kx>=0 and ky<=7 and ky>=0: # square is on the board
+                while True: #loop till broken.
+                    kx = kx + dx #change x
+                    ky = ky + dy #change y
+                    if kx<=7 and kx>=0 and ky<=7 and ky>=0:
+                        #square is on the board
                         if not isOccupied(board,kx,ky):
-                            # The square is empty, so our bishop can go there.
+                            #The square is empty, so our bishop can go there.
                             listofTuples.append((kx,ky))
                         else:
-                            # The square is not empty. If it has a piece of the enemy,our bishop can capture it.
+                            #The square is not empty. If it has a piece of the
+                            #enemy,our bishop can capture it:
                             if isOccupiedby(board,kx,ky,enemy_color):
                                 listofTuples.append((kx,ky))
-                            # Bishops cannot jump over other pieces so terminate the search here.
-                            break
+                            #Bishops cannot jump over other pieces so terminate
+                            #the search here:
+                            break    
                     else:
-                        #Square is not on board. Stop looking for more in this direction.
+                        #Square is not on board. Stop looking for more in this
+                        #direction:
                         break
-    elif piece == 'Q': # A queen
-        # A queen's possible targets are the union of all targets that a rook and a bishop could have made from
-        # the same location. Temporarily pretend there is a rook on the spot:
+    
+    elif piece == 'Q': #A queen
+        #A queen's possible targets are the union of all targets that a rook and
+        #a bishop could have made from the same location
+        #Temporarily pretend there is a rook on the spot:
         board[y][x] = 'R' + color
-        list_rook = findPossibleSquares(position, x, y, True)
-        board[y][x] = 'B' + color # Temporarily pretend there is a bishop:
-        list_bishop = findPossibleSquares(position, x, y, True)
-        listofTuples = list_rook + list_bishop # Merge the lists.
+        list_rook = findPossibleSquares(position,x,y,True)
+        #Temporarily pretend there is a bishop:
+        board[y][x] = 'B' + color
+        list_bishop = findPossibleSquares(position,x,y,True)
+        #Merge the lists:
+        listofTuples = list_rook + list_bishop
         #Change the piece back to a queen:
         board[y][x] = 'Q' + color
     elif piece == 'K': # A king!
-        for dx in [-1,0,1]: # A king can make one step in any direction:
+        #A king can make one step in any direction:
+        for dx in [-1,0,1]:
             for dy in [-1,0,1]:
                 listofTuples.append((x+dx,y+dy))
-        # Make sure the targets aren't our own piece or off-board:
+        #Make sure the targets aren't our own piece or off-board:
         listofTuples = filterbyColor(board,listofTuples,color)
         if not AttackSearch:
-            # Kings can potentially castle:
+            #Kings can potentially castle:
             right = castling_rights[player]
-            # Kingside
-            if (right[0] and # has right to castle
-            board[y][7]!=0 and # The rook square is not empty
-            board[y][7][0]=='R' and # There is a rook at the appropriate place
-            not isOccupied(board,x+1,y) and # The square on its right is empty
-            not isOccupied(board,x+2,y) and # The second square beyond is also empty
-            not isAttackedby(position,x,y,enemy_color) and # The king isn't under atack
-            not isAttackedby(position,x+1,y,enemy_color) and # Or the path through which
-            not isAttackedby(position,x+2,y,enemy_color)): # it will move
+            #Kingside
+            if (right[0] and #has right to castle
+            board[y][7]!=0 and #The rook square is not empty
+            board[y][7][0]=='R' and #There is a rook at the appropriate place
+            not isOccupied(board,x+1,y) and #The square on its right is empty
+            not isOccupied(board,x+2,y) and #The second square beyond is also empty
+            not isAttackedby(position,x,y,enemy_color) and #The king isn't under atack
+            not isAttackedby(position,x+1,y,enemy_color) and #Or the path through which
+            not isAttackedby(position,x+2,y,enemy_color)):#it will move
                 listofTuples.append((x+2,y))
             #Queenside
-            if (right[1] and # has right to castle
-            board[y][0]!=0 and # The rook square is not empty
-            board[y][0][0]=='R' and # The rook square is not empty
-            not isOccupied(board,x-1,y)and # The square on its left is empty
-            not isOccupied(board,x-2,y)and # The second square beyond is also empty
-            not isOccupied(board,x-3,y) and # And the one beyond.
-            not isAttackedby(position,x,y,enemy_color) and # The king isn't under atack
-            not isAttackedby(position,x-1,y,enemy_color) and # Or the path through which
-            not isAttackedby(position,x-2,y,enemy_color)): # it will move
-                listofTuples.append((x-2,y)) # Let castling be an option.
+            if (right[1] and #has right to castle
+            board[y][0]!=0 and #The rook square is not empty
+            board[y][0][0]=='R' and #The rook square is not empty
+            not isOccupied(board,x-1,y)and #The square on its left is empty
+            not isOccupied(board,x-2,y)and #The second square beyond is also empty
+            not isOccupied(board,x-3,y) and #And the one beyond.
+            not isAttackedby(position,x,y,enemy_color) and #The king isn't under atack
+            not isAttackedby(position,x-1,y,enemy_color) and #Or the path through which
+            not isAttackedby(position,x-2,y,enemy_color)):#it will move
+                listofTuples.append((x-2,y)) #Let castling be an option.
 
-    # Make sure the king is not under attack as a result of this move:
+    #Make sure the king is not under attack as a result of this move:
     if not AttackSearch:
         new_list = []
         for tupleq in listofTuples:
             x2 = tupleq[0]
             y2 = tupleq[1]
             temp_pos = position.clone()
-            makemove(temp_pos,x,y,x2,y2)
+            makeMove(temp_pos,x,y,x2,y2)
             if not isCheck(temp_pos,color):
                 new_list.append(tupleq)
         listofTuples = new_list
     return listofTuples
 #-----------------------------------------------------------------------------------------------------------------------
-def makemove(position,x,y,x2,y2):
+def convert_sf(move):
+    # convert Stockfish's notation in board notation  e.g. 'g8f6' -> x1=6, y1=0, x2=5, y2=2
+    lst = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+    idx = 0
+    for x in lst:
+        if(move[0] == x):
+            x1 = idx
+        idx += 1
+    y1 = 8 - int(move[1])
+    idx = 0
+    for x in lst:
+        if(move[2] == x):
+            x2 = idx
+        idx += 1
+    y2 = 8 - int(move[3])
+    return(x1, y1, x2, y2)
+#-----------------------------------------------------------------------------------------------------------------------
+def makeMove(position,x,y,x2,y2):
     #Get data from the position:
     board = position.getboard()
     piece = board[y][x][0]
@@ -661,7 +734,7 @@ def makemove(position,x,y,x2,y2):
     #Make the move:
     board[y2][x2] = board[y][x]
     board[y][x] = 0
-
+    
     #Special piece requirements:
     #King:
     if piece == 'K':
@@ -674,7 +747,7 @@ def makemove(position,x,y,x2,y2):
                 l = 7
             else:
                 l = 0
-
+            
             if x2>x:
                     board[l][5] = 'R'+color
                     board[l][7] = 0
@@ -760,7 +833,6 @@ def isCheckmate(position,color=-1):
             return True
     #Either the king is not under attack or there are possible moves to be played:
     return False
-#-----------------------------------------------------------------------------------------------------------------------
 def isStalemate(position):
     #Get player to move:
     player = position.getplayer()
@@ -774,7 +846,6 @@ def isStalemate(position):
         #It is a stalemate.
         return True
     return False
-#-----------------------------------------------------------------------------------------------------------------------
 def getallpieces(position,color):
     #Get the board:
     board = position.getboard()
@@ -784,7 +855,6 @@ def getallpieces(position,color):
             if isOccupiedby(board,i,j,color):
                 listofpos.append((i,j))
     return listofpos
-#-----------------------------------------------------------------------------------------------------------------------
 def allMoves(position, color):
     #Find if it is white to play or black:
     if color==1:
@@ -803,7 +873,6 @@ def allMoves(position, color):
             #Save them all as possible moves:
              moves.append([pos,target])
     return moves
-#-----------------------------------------------------------------------------------------------------------------------
 def pos2key(position):
     #Get board:
     board = position.getboard()
@@ -873,6 +942,48 @@ def createPieces(board):
                     listofBlackPieces.append(p)
     return [listofWhitePieces,listofBlackPieces] # Return both.
 #-----------------------------------------------------------------------------------------------------------------------
+def getFEN(board): # Forsyth-Edwards Notation
+        strFEN = ""
+        for row in board:
+            count = 0
+            for col in row:
+                if col == 0: # is a space
+                    count += 1
+                else:
+                    if count != 0:
+                        strFEN += str(count)
+                        count =0
+                    if col[1] == 'b':
+                        col = col.lower()
+                        strFEN += col[0]
+                    else:
+                        strFEN += col[0]
+            if count != 0:
+                strFEN += str(count)
+                count =0
+            strFEN += '/'
+        strFEN = strFEN[:-1] # remove the last '/'
+        strFEN += " w " if (position.getplayer() == 0)  else " b "
+        cr = position.getCastleRights()
+        r = 0
+        if cr[0][0]: strFEN +='K'; r=1
+        if cr[0][1]: strFEN +='Q'; r=1
+        if cr[1][0]: strFEN +='k'; r=1
+        if cr[1][1]: strFEN +='q'; r=1
+        if r == 0:   strFEN += '-'
+        enp = position.getEnP()
+        if enp == -1: strFEN += " - "
+        else:
+            x, y = enp
+            hor = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+            x = hor[x]
+            y = str(8-y)
+            strFEN += (' ' + x + y + ' ')
+        strFEN += str(position.getHMC()) + ' '
+        strFEN += str(position.getFMN())
+
+        return strFEN
+#-----------------------------------------------------------------------------------------------------------------------
 def createShades(listofTuples):
     global listofShades 
     listofShades = [] # Empty the global var list
@@ -909,7 +1020,10 @@ def createShades(listofTuples):
         listofShades.append(shade) # append
 #-----------------------------------------------------------------------------------------------------------------------
 def drawBoard():
-    screen.blit(background,(0,0)) # Blit the background.
+    if player == 1:
+        screen.blit(background_flip,(0,0)) # Blit the background.
+    else:
+        screen.blit(background,(0,0)) # Blit the background.
     # Choose the order in which to blit the pieces. If black is about to play for example, white pieces
     # should be blitted first, so that when black is capturing, the piece appears above:
     if player==1:
@@ -1002,7 +1116,7 @@ def negamax(position, depth, alpha, beta, colorsign, bestMoveReturn, root=True):
     bestValue = -100000 # initialize the best move's value
     for move in moves: # go through each move
         newpos = position.clone() # make a clone of the current move and perform the move on it
-        makemove(newpos,move[0][0],move[0][1],move[1][0],move[1][1])
+        makeMove(newpos,move[0][0],move[0][1],move[1][0],move[1][1])
         #Generate the key for the new resulting position:
         key = pos2key(newpos)
         #If this position was already searched before, retrieve its node value.
@@ -1175,11 +1289,12 @@ En_Passant_Target = -1 #This variable will store a coordinate if there is a squa
                        #en passant captured on. Otherwise it stores -1, indicating lack of en passant
                        #targets.
 half_move_clock = 0 #This variable stores the number of reversible moves that have been played so far.
+FMN =1
 #Generate an instance of GamePosition class to store the above data:
 position = GamePosition(board,player,castling_rights,En_Passant_Target
-                        ,half_move_clock)
+                        ,half_move_clock, FMN)
 #Store the piece square tables here so they can be accessed globally by pieceSquareTable() function:
-
+stockfish         = Engine(depth=10)
 pawn_table =          [ 0,  0,  0,  0,  0,  0,  0,  0,
                        50, 50, 50, 50, 50, 50, 50, 50,
                        10, 10, 20, 30, 30, 20, 10, 10,
@@ -1245,10 +1360,65 @@ king_endgame_table = [-50,-40,-30,-20,-20,-30,-40,-50,
 #-----------------------------------------------------------------------------------------------------------------------
 
 
+def showMenue():
+    global isAI, isFlip, AIPlayer, gameEnded, isAIThink, bestMoveReturn, bm
+    screen.blit(background,(0,0))
+    if isAI==-1:
+        screen.blit(withfriend_pic,(offset, offset+squareSize*2))
+        screen.blit(withAI_pic,(offset+squareSize*4, offset+squareSize*2))
+    elif isAI==True:
+        screen.blit(playwhite_pic,(offset,offset+squareSize*2))
+        screen.blit(playblack_pic,(offset+squareSize*4, offset+squareSize*2))
+    elif isAI==False:
+        screen.blit(flipDisabled_pic,(offset,offset+squareSize*2))
+        screen.blit(flipEnabled_pic,(offset+squareSize*4, offset+squareSize*2))
+    if isFlip!=-1:
+        drawBoard() # Draw all the pieces onto the board,
+        #isMenu = False # Don't let the menu ever appear again.
+        if isAI and AIPlayer==0: # In case the player chose to play against the AI and decided to
+            # colorsign=1          # play as black, call upon the AI to make a move:
+            # bestMoveReturn = []
+            # move_thread = threading.Thread(target = negamax,
+            #             args = (position,3,-1000000,1000000,colorsign,bestMoveReturn))
+            # move_thread.start()
+            stockfish.setfenposition(getFEN(position.getboard()))
+            bm = stockfish.bestmove()
+            print(bm['move'])
+            isAIThink = True
+        return False
+    for event in pygame.event.get(): # Handle the events while in menu
+        if event.type==QUIT: # Window was closed.
+            gameEnded = True
+            return False
+        if event.type == MOUSEBUTTONUP:           # The mouse was clicked somewhere.
+            pos = pygame.mouse.get_pos()          # Get the coordinates of click
+            if (pos[0] < offset+squareSize*4 and  # Determine if left box was clicked or right box.
+            pos[1]> offset+squareSize*2 and
+            pos[1]< offset+squareSize*6):         # LEFT SIDE CLICKED
+                if isAI == -1:
+                    isAI = False
+                elif isAI==True:
+                    AIPlayer = 1
+                    isFlip = False
+                elif isAI==False:
+                    isFlip = False
+            elif (pos[0]> offset+squareSize*4 and
+            pos[1]> offset+squareSize*2 and
+            pos[1]< offset+squareSize*6):         # RIGHT SIDE CLICKED
+                if isAI == -1:
+                    isAI = True
+                elif isAI==True:
+                    AIPlayer = 0
+                    isFlip = False
+                elif isAI==False:
+                    isFlip=True
+    return True
+#-----------------------------------------------------------------------------------------------------------------------
 
 listofWhitePieces,listofBlackPieces = createPieces(board) # A list of pieces that should be drawn on the board.
 clock = pygame.time.Clock() #Helps controlling fps of the game.
 isDraw = False #Will store True if the game ended with a draw
+
 
 try: # If openingTable.txt exists, read from it and load the opening moves to the local dictionary.
     file_handle = open(os.path.dirname(__file__) + '/openingTable.txt','rb')
@@ -1258,53 +1428,7 @@ except:
 
 while not gameEnded: # The program remains in this loop until the user quits the application.
     if isMenu:
-        screen.blit(background,(0,0))
-        if isAI==-1:
-            screen.blit(withfriend_pic,(offset, offset+squareSize*2))
-            screen.blit(withAI_pic,(offset+squareSize*4, offset+squareSize*2))
-        elif isAI==True:
-            screen.blit(playwhite_pic,(offset,offset+squareSize*2))
-            screen.blit(playblack_pic,(offset+squareSize*4, offset+squareSize*2))
-        elif isAI==False:
-            screen.blit(flipDisabled_pic,(offset,offset+squareSize*2))
-            screen.blit(flipEnabled_pic,(offset+squareSize*4, offset+squareSize*2))
-        if isFlip!=-1:
-            drawBoard() # Draw all the pieces onto the board,
-            isMenu = False # Don't let the menu ever appear again.
-            if isAI and AIPlayer==0: # In case the player chose to play against the AI and decided to
-                colorsign=1          # play as black, call upon the AI to make a move:
-                bestMoveReturn = []
-                move_thread = threading.Thread(target = negamax,
-                            args = (position,3,-1000000,1000000,colorsign,bestMoveReturn))
-                move_thread.start()
-                isAIThink = True
-            continue
-        for event in pygame.event.get(): # Handle the events while in menu
-            if event.type==QUIT: # Window was closed.
-                gameEnded = True
-                break
-            if event.type == MOUSEBUTTONUP:           # The mouse was clicked somewhere.
-                pos = pygame.mouse.get_pos()          # Get the coordinates of click
-                if (pos[0] < offset+squareSize*4 and  # Determine if left box was clicked or right box.
-                pos[1]> offset+squareSize*2 and
-                pos[1]< offset+squareSize*6):         # LEFT SIDE CLICKED
-                    if isAI == -1:
-                        isAI = False
-                    elif isAI==True:
-                        AIPlayer = 1
-                        isFlip = False
-                    elif isAI==False:
-                        isFlip = False
-                elif (pos[0]> offset+squareSize*4 and
-                pos[1]> offset+squareSize*2 and
-                pos[1]< offset+squareSize*6):         # RIGHT SIDE CLICKED
-                    if isAI == -1:
-                        isAI = True
-                    elif isAI==True:
-                        AIPlayer = 0
-                        isFlip = False
-                    elif isAI==False:
-                        isFlip=True
+        isMenu = showMenue()
         pygame.display.update()
         clock.tick(60) # Run at specific fps
         continue
@@ -1407,9 +1531,14 @@ while not gameEnded: # The program remains in this loop until the user quits the
                 pygame.mixer.Sound.play(snd_cap)
             else:
                 pygame.mixer.Sound.play(snd_mov)
-            makemove(position,x,y,x2,y2) # Make the move.
+            makeMove(position,x,y,x2,y2) # Make the move.
+            position.increaseFMN()
             #Update this move to be the 'previous' move (latest move in fact), so that
             #yellow shades can be shown on it.
+            stockfish.setfenposition(getFEN(position.getboard()))
+            bm = stockfish.bestmove()
+            print(bm['move'])
+            #print(bm['ponder'])
             prevMove = [x,y,x2,y2]
             #Update which player is next to play:
             player = position.getplayer()
@@ -1448,14 +1577,14 @@ while not gameEnded: # The program remains in this loop until the user quits the
 
     if awaitAI and not isTransition:
         awaitAI = False
-        if player==0:
-            colorsign = 1
-        else:
-            colorsign = -1
-        bestMoveReturn = []
-        move_thread = threading.Thread(target = negamax,
-                    args = (position,searchDepth,-1000000,1000000,colorsign,bestMoveReturn))
-        move_thread.start()
+        # if player==0:
+        #     colorsign = 1
+        # else:
+        #     colorsign = -1
+        # bestMoveReturn = []
+        # move_thread = threading.Thread(target = negamax,
+        #             args = (position,searchDepth,-1000000,1000000,colorsign,bestMoveReturn))
+        # move_thread.start()
         isAIThink = True
     if isTransition: #If an animation is supposed to happen, make it happen.
         p,q = movingPiece.getpos()
@@ -1482,21 +1611,23 @@ while not gameEnded: # The program remains in this loop until the user quits the
     #done thining, in case it replied in the affirmative and starts moving
     #at the same time as your piece is moving:
     if isAIThink and not isTransition:
-        if not move_thread.isAlive():
+        #if True():
             #The AI has made a decision.
             #It's no longer thinking
             isAIThink = False
             #Destroy any shades:
             createShades([])
             #Get the move proposed:
-            [x,y],[x2,y2] = bestMoveReturn
+            #[x,y],[x2,y2] = bestMoveReturn
+            x,y,x2,y2 = convert_sf(bm['move'])
+            #Do everything just as if the user made a move by click-click movement:
+            print("makemove" ,x,y,x2,y2)
             # play a sound
             if isOccupied(board, x2, y2):
                 pygame.mixer.Sound.play(snd_cap)
             else:
                 pygame.mixer.Sound.play(snd_mov)
-            #Do everything just as if the user made a move by click-click movement:
-            makemove(position,x,y,x2,y2)
+            makeMove(position, x, y, x2, y2)
 
             prevMove = [x,y,x2,y2]
             player = position.getplayer()
