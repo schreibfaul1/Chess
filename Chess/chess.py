@@ -241,7 +241,7 @@ snd_mov = pygame.mixer.Sound(soundPath + '/move.wav')
 snd_cap = pygame.mixer.Sound(soundPath + '/capture.wav')
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 class GamePosition:
     '''
     GamePosition - This class stores a chess position. A chess position constitutes several features that specify
@@ -327,7 +327,7 @@ class GamePosition:
         return clone
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 class Shades:
     '''
     Shades - This is used for GUI. A shade is a transparent colored image that is displayed on a specific square of the
@@ -344,7 +344,7 @@ class Shades:
         return [self.image, self.pos]
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 class Piece:
     '''
     Piece - This is also used for GUI. A Piece object stores the information about the image that a piece should
@@ -398,7 +398,7 @@ class Piece:
         return self.pieceInfo + '(' + str(chess_coord[0]) + ',' + str(chess_coord[1]) + ')'
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 
 # ///////////////////////////////CHESS PROCESSING FUNCTIONS////////////////////
@@ -753,7 +753,7 @@ def findPossibleSquares(position, x, y, AttackSearch=False):
     return listofTuples
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def convert_sf(move):
     # convert Stockfish's notation in board notation  e.g. 'g8f6' -> x1=6, y1=0, x2=5, y2=2
     lst = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
@@ -772,7 +772,7 @@ def convert_sf(move):
     return (x1, y1, x2, y2)
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def makeMove(position, x, y, x2, y2):
     # Get data from the position:
     board = position.getboard()
@@ -865,7 +865,7 @@ def makeMove(position, x, y, x2, y2):
     position.setHMC(half_move_clock)
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def opp(color):
     color = color[0]
     if color == 'w':
@@ -875,7 +875,7 @@ def opp(color):
     return oppcolor
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def isCheck(position, color):
     # Get data:
     board = position.getboard()
@@ -889,7 +889,7 @@ def isCheck(position, color):
     return isAttackedby(position, x, y, enemy)
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def isCheckmate(position, color=-1):
     if color == -1:
         return isCheckmate(position, 'white') or isCheckmate(position, 'b')
@@ -966,9 +966,9 @@ def pos2key(position):
     return key
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 #                                 G U I    F U N C T I O N S
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def coord2pixels(chess_coord):
     x1, y = chess_coord
     # There are two sets of coordinates that this function could choose to return.One is the coordinates that would
@@ -987,7 +987,7 @@ def coord2pixels(chess_coord):
         return ((7 - x1) * squareSize + offset, (7 - y) * squareSize + offset)
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def pixels2coord(pixel_coord):
     if pixel_coord[0] - offset < 0 or pixel_coord[1] - offset < 0:
         return (8, 8)  # outside the board
@@ -1003,14 +1003,14 @@ def pixels2coord(pixel_coord):
         return (7 - x, 7 - y)
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def getPiece(chess_coord: object) -> object:
     for piece in listofWhitePieces + listofBlackPieces:
         if piece.getInfo()[0] == chess_coord:  # piece.getInfo()[0] represents the chess coordinate occupied by piece.
             return piece
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def createPieces(board):
     listofWhitePieces = []  # Initialize containers.
     listofBlackPieces = []
@@ -1025,7 +1025,7 @@ def createPieces(board):
     return [listofWhitePieces, listofBlackPieces]  # Return both.
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def getFEN(board):  # Forsyth-Edwards Notation
     strFEN = ""
     for row in board:
@@ -1070,7 +1070,7 @@ def getFEN(board):  # Forsyth-Edwards Notation
     return strFEN
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def createShades(listofTuples: object) -> object:
     global listofShades
     listofShades = []  # Empty the global var list
@@ -1107,7 +1107,7 @@ def createShades(listofTuples: object) -> object:
         listofShades.append(shade)  # append
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def drawBoard():
     if player == 1:
         screen.blit(background_flip, (0, 0))  # Blit the background.
@@ -1167,9 +1167,9 @@ def drawBoard():
             screen.blit(pieceImage, pos)
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 #                             A I     R E L A T E D     F U N C T I O N S
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def negamax(position, depth, alpha, beta, colorsign, bestMoveReturn, root=True):
     # negamax(position,depth,alpha,beta,colorsign,bestMoveReturn,root=True) - This function takes as its inputs a
     # position, and a depth to which moves should be  analysed. It will generate moves and analyse resulting positions
@@ -1239,7 +1239,7 @@ def negamax(position, depth, alpha, beta, colorsign, bestMoveReturn, root=True):
     return bestValue
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def evaluate(position):
     # This function takes as input a position to be analysed. It will look at the positioning of pieces on the board
     # to judge whether white has an advantage or black. If it returns zero, it means it considers the position to be
@@ -1290,7 +1290,7 @@ def evaluate(position):
     return evaluation  # return it
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def pieceSquareTable(flatboard, gamephase):
     # Gives a position a score based solely on tables that define points for each position for each piece type.
     score = 0  # initialize score:
@@ -1321,7 +1321,7 @@ def pieceSquareTable(flatboard, gamephase):
     return score
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def doubledPawns(board, color):
     # This function counts the number of doubled pawns for a player and returns it.
     # Doubled pawns are those that are on the same file.
@@ -1337,7 +1337,7 @@ def doubledPawns(board, color):
     return repeats
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def blockedPawns(board, color):
     # This function counts the number of blocked pawns for a player and returns it.
     # Blocked pawns are those that have a piece in front of them and so cannot advance forward.
@@ -1351,7 +1351,7 @@ def blockedPawns(board, color):
     return blocked
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def isolatedPawns(board, color):
     # This function counts the number of isolated pawns for a player.
     # These are pawns that do not have supporting pawns on adjacent files and so are difficult to protect.
@@ -1370,7 +1370,7 @@ def isolatedPawns(board, color):
     return isolated
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 #########MAIN FUNCTION####################################################
 
@@ -1439,7 +1439,7 @@ king_endgame_table = [-50, -40, -30, -20, -20, -30, -40, -50,
                       -50, -30, -30, -30, -30, -30, -30, -50]
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 def showMenue():
     global isAI, isFlip, AIPlayer, gameEnded, isAIThink, bestMoveReturn, bm
     screen.blit(background, (0, 0))
@@ -1495,7 +1495,7 @@ def showMenue():
     return True
 
 
-# -----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 # objects
 position = GamePosition(board, player, castling_rights, En_Passant_Target, half_move_clock, FMN)
