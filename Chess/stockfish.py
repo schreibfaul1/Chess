@@ -1,11 +1,9 @@
-import re         # RegularExpression
+import re  # RegularExpression
 import subprocess
 from random import randint
 
-
-UCI_MOVE_REGEX    = "[a-h]\d[a-h]\d[qrnb]?" # used in Stockfish Engine
-PV_REGEX          = " pv (?P<move_list>{0}( {0})*)".format(UCI_MOVE_REGEX) # used in Stockfish Engine
-
+UCI_MOVE_REGEX = "[a-h]\d[a-h]\d[qrnb]?"  # used in Stockfish Engine
+PV_REGEX = " pv (?P<move_list>{0}( {0})*)".format(UCI_MOVE_REGEX)  # used in Stockfish Engine
 
 
 class Engine(subprocess.Popen):
@@ -34,9 +32,6 @@ class Engine(subprocess.Popen):
     'rand_min' and 'rand_max' so that you may run automated matches against slightly different
     engines.
     """
-
-    UCI_MOVE_REGEX    = "[a-h]\d[a-h]\d[qrnb]?" # used in Stockfish Engine
-    PV_REGEX          = " pv (?P<move_list>{0}( {0})*)".format(UCI_MOVE_REGEX) # used in Stockfish Engine
 
     def __init__(self, depth=2, ponder=False, param={}, rand=False, rand_min=-10, rand_max=10):
         subprocess.Popen.__init__(self,
@@ -74,7 +69,7 @@ class Engine(subprocess.Popen):
         for name, value in list(base_param.items()):
             self.setoption(name, value)
 
-    def newgame(self):
+    def newGame(self):
         """
         Calls 'ucinewgame' - this should be run before a new game
         """
@@ -130,7 +125,7 @@ class Engine(subprocess.Popen):
         while True:
             text = self.stdout.readline().strip()
             split_text = text.split(' ')
-            #print(text)
+            # print(text)
             if split_text[0] == "info":
                 last_info = Engine._bestmove_get_info(text)
             if split_text[0] == "bestmove":

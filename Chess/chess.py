@@ -271,7 +271,7 @@ class GamePosition:
     def setboard(self, board):
         self.board = board
 
-    def getplayer(self):
+    def getPlayer(self):
         return self.player
 
     def setplayer(self, player):
@@ -336,7 +336,7 @@ class Shades:
     display when needed. It also stores the coordinates at which the shade would be applied.
     '''
 
-    def __init__(self, image, coord):
+    def __init__(self, image: object, coord: object) -> object:
         self.image = image
         self.pos = coord
 
@@ -561,7 +561,7 @@ def isAttackedby(position, target_x, target_y, color):
 def findPossibleSquares(position, x, y, AttackSearch=False):
     # Get individual component data from the position object:
     board = position.getboard()
-    player = position.getplayer()
+    player = position.getPlayer()
     castling_rights = position.getCastleRights()
     EnP_Target = position.getEnP()
     # In case something goes wrong:
@@ -779,7 +779,7 @@ def makeMove(position, x, y, x2, y2):
     piece = board[y][x][0]
     color = board[y][x][1]
     # Get the individual game components:
-    player = position.getplayer()
+    player = position.getPlayer()
     castling_rights = position.getCastleRights()
     EnP_Target = position.getEnP()
     half_move_clock = position.getHMC()
@@ -903,7 +903,7 @@ def isCheckmate(position, color=-1):
 
 def isStalemate(position):
     # Get player to move:
-    player = position.getplayer()
+    player = position.getPlayer()
     # Get color:
     if player == 0:
         color = 'w'
@@ -960,7 +960,7 @@ def pos2key(position):
     # Convert to a tuple:
     tuplerights = (tuple(rights[0]), tuple(rights[1]))
     # Generate the key, which is a tuple that also takes into account the side to play:
-    key = (boardTuple, position.getplayer(),
+    key = (boardTuple, position.getPlayer(),
            tuplerights)
     # Return the key:
     return key
@@ -970,21 +970,21 @@ def pos2key(position):
 #                                 G U I    F U N C T I O N S
 # -----------------------------------------------------------------------------------------------------------------------
 def coord2pixels(chess_coord):
-    x, y = chess_coord
+    x1, y = chess_coord
     # There are two sets of coordinates that this function could choose to return.One is the coordinates that would
     # be usually returned, the other is one that would be returned if the board were to be flipped.
     # Note that squareSize are defined in the main function and so are accessible here as global variables.
     if isAI:
         if AIPlayer == 0:  # this means you're playing against the AI and are playing as black.
-            return ((7 - x) * squareSize + offset, (7 - y) * squareSize + offset)
+            return (7 - x1) * squareSize + offset, (7 - y) * squareSize + offset
         else:
-            return (x * squareSize + offset, y * squareSize + offset)
+            return x1 * squareSize + offset, y * squareSize + offset
     # Being here means two player game is being played. If the flipping mode is enabled, and the player to play is
     # black, the board should flip, but not until the transition animation for white movement is complete.
     if not isFlip or player == 0 ^ isTransition:
-        return (x * squareSize + offset, y * squareSize + offset)
+        return (x1 * squareSize + offset, y * squareSize + offset)
     else:
-        return ((7 - x) * squareSize + offset, (7 - y) * squareSize + offset)
+        return ((7 - x1) * squareSize + offset, (7 - y) * squareSize + offset)
 
 
 # -----------------------------------------------------------------------------------------------------------------------
@@ -1004,7 +1004,7 @@ def pixels2coord(pixel_coord):
 
 
 # -----------------------------------------------------------------------------------------------------------------------
-def getPiece(chess_coord):
+def getPiece(chess_coord: object) -> object:
     for piece in listofWhitePieces + listofBlackPieces:
         if piece.getInfo()[0] == chess_coord:  # piece.getInfo()[0] represents the chess coordinate occupied by piece.
             return piece
@@ -1047,7 +1047,7 @@ def getFEN(board):  # Forsyth-Edwards Notation
             count = 0
         strFEN += '/'
     strFEN = strFEN[:-1]  # remove the last '/'
-    strFEN += " w " if (position.getplayer() == 0) else " b "
+    strFEN += " w " if (position.getPlayer() == 0) else " b "
     cr = position.getCastleRights()
     r = 0
     if cr[0][0]: strFEN += 'K'; r = 1
@@ -1071,7 +1071,7 @@ def getFEN(board):  # Forsyth-Edwards Notation
 
 
 # -----------------------------------------------------------------------------------------------------------------------
-def createShades(listofTuples):
+def createShades(listofTuples: object) -> object:
     global listofShades
     listofShades = []  # Empty the global var list
     if isTransition:
@@ -1542,15 +1542,15 @@ while not gameEnded:  # The program remains in this loop until the user quits th
         if not isDown and event.type == MOUSEBUTTONDOWN:  # isDown means a piece is being dragged.
             pos = pygame.mouse.get_pos()  # Mouse was pressed down. Get the oordinates of the mouse
             chess_coord = pixels2coord(pos)  # convert to chess coordinates
-            x = chess_coord[0]
+            x1 = chess_coord[0]
             y = chess_coord[1]
             # If the piece clicked on is not occupied by your own piece, ignore this mouse click:
-            if not isOccupiedby(board, x, y, 'wb'[player]):
+            if not isOccupiedby(board, x1, y, 'wb'[player]):
                 continue
             # Now we're sure the user is holding their mouse on a piecec that is theirs.
             # Get reference to the piece that should be dragged around or selected:
             dragPiece = getPiece(chess_coord)
-            listofTuples = findPossibleSquares(position, x,
+            listofTuples = findPossibleSquares(position, x1,
                                                y)  # Find the possible squares that this piece could attack.
             createShades(listofTuples)  # Highlight all such squares
             # A green box should appear on the square which was selected, unless it's a king under check,
@@ -1558,7 +1558,7 @@ while not gameEnded:  # The program remains in this loop until the user quits th
             if ((dragPiece.pieceInfo[0] == 'K') and (isCheck(position, 'white') or isCheck(position, 'black'))):
                 None
             else:
-                listofShades.append(Shades(greenbox_image, (x, y)))
+                listofShades.append(Shades(greenbox_image, (x1, y)))
             isDown = True  # A piece is being dragged.
         if (isDown or isClicked) and event.type == MOUSEBUTTONUP:  # Mouse was released.
             isDown = False
@@ -1569,16 +1569,16 @@ while not gameEnded:  # The program remains in this loop until the user quits th
             y2 = chess_coord[1]
             # Initialize:
             isTransition = False
-            if (x, y) == (x2, y2):  # NO dragging occured
+            if (x1, y) == (x2, y2):  # NO dragging occured
                 # (ie the mouse was held and released on the same square)
                 if not isClicked:  # nothing had been clicked previously
                     # This is the first click
                     isClicked = True
-                    prevPos = (x, y)  # Store it so next time we know the origin
+                    prevPos = (x1, y)  # Store it so next time we know the origin
                 else:  # Something had been clicked previously
                     # Find out location of previous click:
-                    x, y = prevPos
-                    if (x, y) == (x2, y2):  # User clicked on the same square again.
+                    x1, y = prevPos
+                    if (x1, y) == (x2, y2):  # User clicked on the same square again.
                         # So
                         isClicked = False
                         # Destroy all shades:
@@ -1606,14 +1606,14 @@ while not gameEnded:  # The program remains in this loop until the user quits th
             if isRecord:
                 key = pos2key(position)
                 # Make sure it isn't already in there:
-                if [(x, y), (x2, y2)] not in openings[key]:
-                    openings[key].append([(x, y), (x2, y2)])
+                if [(x1, y), (x2, y2)] not in openings[key]:
+                    openings[key].append([(x1, y), (x2, y2)])
 
             if isOccupied(board, x2, y2):  # play a sound
                 pygame.mixer.Sound.play(snd_cap)
             else:
                 pygame.mixer.Sound.play(snd_mov)
-            makeMove(position, x, y, x2, y2)  # Make the move.
+            makeMove(position, x1, y, x2, y2)  # Make the move.
             position.increaseFMN()
             # Update this move to be the 'previous' move (latest move in fact), so that
             # yellow shades can be shown on it.
@@ -1623,9 +1623,9 @@ while not gameEnded:  # The program remains in this loop until the user quits th
             print(FEN)
             print(bm['move'])
             # print(bm['ponder'])
-            prevMove = [x, y, x2, y2]
+            prevMove = [x1, y, x2, y2]
             # Update which player is next to play:
-            player = position.getplayer()
+            player = position.getPlayer()
             # Add the new position to the history for it:
             position.addtoHistory(position)
             # Check for possibilty of draw:
@@ -1653,7 +1653,7 @@ while not gameEnded:  # The program remains in this loop until the user quits th
                 listofWhitePieces, listofBlackPieces = createPieces(board)
             else:
                 movingPiece = dragPiece
-                origin = coord2pixels((x, y))
+                origin = coord2pixels((x1, y))
                 destiny = coord2pixels((x2, y2))
                 movingPiece.setpos(origin)
                 step = (destiny[0] - origin[0], destiny[1] - origin[1])
@@ -1703,7 +1703,7 @@ while not gameEnded:  # The program remains in this loop until the user quits th
         createShades([])
         # Get the move proposed:
         # [x,y],[x2,y2] = bestMoveReturn
-        x, y, x2, y2 = convert_sf(bm['move'])
+        x1, y, x2, y2 = convert_sf(bm['move'])
         # Do everything just as if the user made a move by click-click movement:
         # play a sound
         if isOccupied(board, x2, y2):
@@ -1711,10 +1711,10 @@ while not gameEnded:  # The program remains in this loop until the user quits th
         else:
             pygame.mixer.Sound.play(snd_mov)
         print(getFEN(position.getboard()))
-        makeMove(position, x, y, x2, y2)
+        makeMove(position, x1, y, x2, y2)
         position.increaseFMN()
-        prevMove = [x, y, x2, y2]
-        player = position.getplayer()
+        prevMove = [x1, y, x2, y2]
+        player = position.getPlayer()
         HMC = position.getHMC()
         position.addtoHistory(position)
         if HMC >= 100 or isStalemate(position) or position.checkRepition():
@@ -1728,8 +1728,8 @@ while not gameEnded:  # The program remains in this loop until the user quits th
             chessEnded = True
         # Animate the movement:
         isTransition = True
-        movingPiece = getPiece((x, y))
-        origin = coord2pixels((x, y))
+        movingPiece = getPiece((x1, y))
+        origin = coord2pixels((x1, y))
         destiny = coord2pixels((x2, y2))
         movingPiece.setpos(origin)
         step = (destiny[0] - origin[0], destiny[1] - origin[1])
